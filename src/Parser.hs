@@ -81,22 +81,12 @@ constantDefinition = do
   return $ ConstantDefinition ident expr
 
 
-expressions mode = sepBy (expression mode) comma
-
 patterns = parens (expressions PatternMode) <|> do
   pattern <- expression PatternMode
   return [pattern]
 
-
 expression mode = operatorSystem mode
-
-valueExpression
-  =   NumberValue <$> try float
-  <|> (NumberValue . fromIntegral) <$> integer
-  <|> StringValue <$> stringLiteral
-  <|> (reserved "true" >> return (BoolValue True))
-  <|> (reserved "false" >> return (BoolValue False))
-  <|> (reserved "null" >> return NullValue)
+expressions mode = sepBy (expression mode) comma
 
 
 operatorSystem mode = buildExpressionParser (operators mode) (applies mode)
@@ -142,10 +132,16 @@ applies mode@ExpressionMode = factor mode >>= f
       f (ApplyExpression (ValueExpression $ StringValue "[]")
          [left, ValueExpression $ StringValue ident])
      <|> return left
-applies mode = do -- TODO
-  left <- factor mode
-  ApplyExpression left <$> parens (expressions VariableQuoteMode)
-    <|> return left
+applies mode = try (do
+  ident <- identifier
+  args <- parens (expressions VariableQuoteMode)
+  f (ApplyExpression (VariableExpression ident) args))
+  <|> factor mode
+  where
+    f left = do
+      args <- parens (expressions VariableQuoteMode)
+      f (ApplyExpression left args)
+     <|> return left
 
 factor mode@ExpressionMode
   = parens (operatorSystem mode)
@@ -205,3 +201,12 @@ guardClause = do
   body <- expression ExpressionMode
   whiteSpace
   return (guard, body)
+
+
+valueExpression
+  =   NumberValue <$> try float
+  <|> (NumberValue . fromIntegral) <$> integer
+  <|> StringValue <$> stringLiteral
+  <|> (reserved "true" >> return (BoolValue True))
+  <|> (reserved "false" >> return (BoolValue False))
+  <|> (reserved "null" >> return NullValue)
