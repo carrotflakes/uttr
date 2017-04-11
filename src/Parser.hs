@@ -1,5 +1,6 @@
 module Parser
-     ( parseStatement
+     ( parseStatement,
+       parseStatements
      ) where
 
 --import Text.Parsec.Prim
@@ -16,7 +17,11 @@ import Ast
 
 languageDef = emptyDef
   {
-    P.reservedNames = ["t", "f", "nil", "case", "of"]
+    P.commentStart = "/*",
+    P.commentEnd = "*/",
+    P.commentLine = "//",
+    P.nestedComments = True,
+    P.reservedNames = ["true", "false", "null"]
   }
 
 lexer  = P.makeTokenParser languageDef
@@ -30,6 +35,18 @@ reservedOp = P.reservedOp lexer
 integer = P.integer lexer
 float = P.float lexer
 stringLiteral = P.stringLiteral lexer
+comma = P.comma lexer
+semi = P.semi lexer
+
+
+data Mode = ExpressionMode | PatternMode | VariableQuoteMode deriving (Eq)
+
+
+parseStatements :: String -> String -> Either ParseError [Statement]
+parseStatements = parse $ do
+  sts <- many statement
+  eof
+  return sts
 
 
 parseStatement :: String -> String -> Either ParseError Statement
@@ -39,69 +56,53 @@ parseStatement = parse $ do
   return st
 
 
-statement =
-    try (DefinitionStatement <$> definition)
-  <|>
-    ExpressionStatement <$> expression
+statement = do
+  expr <- (DefinitionStatement <$> try definition <|>
+           ExpressionStatement <$> expression ExpressionMode)
+  Text.Parsec.optional semi
+  return expr
 
 definition = try functionDefinition <|> constantDefinition
 
 functionDefinition = do
+  whiteSpace
   ident <- identifier
-  params <- parens expressions
-  -- guard
   whiteSpace
-  string "="
-  whiteSpace
-  expr <- expression
-  return $ FunctionDefinition ident params expr
+  matchClauses <- matchClauses
+  return $ FunctionDefinition ident matchClauses
 
 constantDefinition = do
+  whiteSpace
   ident <- identifier
   whiteSpace
   string "="
   whiteSpace
-  expr <- expression
+  expr <- expression ExpressionMode
   return $ ConstantDefinition ident expr
 
-expressions = sepBy expression $ do
-  whiteSpace
-  char ','
-  whiteSpace
+
+expressions mode = sepBy (expression mode) comma
+
+patterns = parens (expressions PatternMode) <|> do
+  pattern <- expression PatternMode
+  return [pattern]
 
 
-expression = operatorSystem
+expression mode = operatorSystem mode
 
-valueExpression = do
-    float <- try float
-    return $ NumberValue $ float
-  <|> do
-    integer <- integer
-    return $ NumberValue $ fromIntegral integer
-  <|> do
-    str <- stringLiteral
-    return $ StringValue str
-  <|>
-    (reserved "t" >> return (BoolValue True))
-  <|>
-    (reserved "f" >> return (BoolValue False))
-  <|>
-    (reserved "nil" >> return NilValue)
+valueExpression
+  =   NumberValue <$> try float
+  <|> (NumberValue . fromIntegral) <$> integer
+  <|> StringValue <$> stringLiteral
+  <|> (reserved "true" >> return (BoolValue True))
+  <|> (reserved "false" >> return (BoolValue False))
+  <|> (reserved "null" >> return NullValue)
 
 
-operatorSystem = buildExpressionParser operators factor
+operatorSystem mode = buildExpressionParser (operators mode) (applies mode)
 
-operators =
-  [ [
-      Postfix $ do
-        args <- parens expressions
-        return $ \x -> ApplyExpression x args
-    , Postfix $ do
-        arg <- brackets expression
-        return $ \x -> ApplyExpression (ValueExpression $ StringValue "[]") [x, arg]
-    , Postfix $ do
-        ident <- identifier
-        return $ \x -> ApplyExpression (ValueExpression $ StringValue "[]") [x, ValueExpression $ StringValue ident]
+operators mode =
+  [ [ Infix (reservedOp ":" >> return ConsExpression) AssocRight
     ]
   , [ infixOp "*" AssocLeft
     , infixOp "/" AssocLeft
@@ -123,37 +124,84 @@ operators =
   ]
   where
     infixOp name assoc =
-      Infix(do
-               reservedOp name
-               return $ \x y -> ApplyExpression (ValueExpression $ StringValue name) [x, y])
+      Infix (reservedOp name >>
+             return (\x y -> ApplyExpression (ValueExpression $ StringValue name) [x, y]))
       assoc
 
-factor = parens operatorSystem
-    <|> do
-      val <- valueExpression
-      return $ ValueExpression val
-    <|> do
+applies mode@ExpressionMode = factor mode >>= f
+  where
+    f left = do
+      args <- parens (expressions mode)
+      f (ApplyExpression left args)
+     <|> do
+      arg <- brackets (expression mode)
+      f (ApplyExpression (ValueExpression $ StringValue "[]") [left, arg])
+     <|> do
+      P.dot lexer
       ident <- identifier
-      return $ VariableExpression ident
-    <|> do
-      exprs <- brackets expressions
-      return $ ListExpression exprs
-    <|> do
-      membs <- braces members
-      return $ ObjectExpression membs
+      f (ApplyExpression (ValueExpression $ StringValue "[]")
+         [left, ValueExpression $ StringValue ident])
+     <|> return left
+applies mode = do -- TODO
+  left <- factor mode
+  ApplyExpression left <$> parens (expressions VariableQuoteMode)
+    <|> return left
 
-members = sepBy member $ do
-  whiteSpace
-  char ','
-  whiteSpace
+factor mode@ExpressionMode
+  = parens (operatorSystem mode)
+  <|> ValueExpression <$> valueExpression
+  <|> VariableExpression <$> identifier
+  <|> ListExpression <$> try (brackets $ expressions mode)
+  <|> ObjectExpression <$> braces (P.commaSep lexer $ member mode)
+  <|> ClosureExpression <$> brackets matchClauses
+factor mode@PatternMode
+  = parens (operatorSystem mode)
+  <|> ValueExpression <$> valueExpression
+  <|> VariableExpression <$> identifier
+  <|> ListExpression <$> try (brackets $ expressions mode)
+  <|> ObjectExpression <$> braces (P.commaSep lexer $ member mode)
+factor mode@VariableQuoteMode
+  = parens (operatorSystem mode)
+  <|> ValueExpression <$> valueExpression
+  <|> (ValueExpression . VariableValue) <$> identifier
+  <|> ListExpression <$> try (brackets $ expressions mode)
+  <|> ObjectExpression <$> braces (P.commaSep lexer $ member mode)
 
-member = do
-  ident <- identifier <|> stringLiteral
-  whiteSpace
-  string ":"
-  whiteSpace
-  expr <- expression
-  return (ident, expr)
+member mode
+  = try (do
+    ident <- identifier <|> stringLiteral
+    P.colon lexer
+    expr <- expression mode
+    return (ident, expr))
+  <|> do
+    ident <- identifier
+    return (ident, VariableExpression ident)
 
+matchClauses = sepBy1
+ (do
+    patterns <- patterns
+    guardClausesOrBody <- body <|> guardClauses
+    return (patterns, guardClausesOrBody))
+ comma
 
--- cons, lambda, object
+body = do
+  whiteSpace
+  char '='
+  whiteSpace
+  body <- expression ExpressionMode
+  whiteSpace
+  return $ Left body
+
+guardClauses = Right <$> many1 guardClause
+
+guardClause = do
+  whiteSpace
+  char '|'
+  whiteSpace
+  guard <- expression ExpressionMode
+  whiteSpace
+  char '='
+  whiteSpace
+  body <- expression ExpressionMode
+  whiteSpace
+  return (guard, body)
