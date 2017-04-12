@@ -39,11 +39,12 @@ comma = P.comma lexer
 semi = P.semi lexer
 
 
-data Mode = ExpressionMode | PatternMode | VariableQuoteMode deriving (Eq)
+data Mode = ExpressionMode | PatternMode deriving (Eq)
 
 
 parseStatements :: String -> String -> Either ParseError [Statement]
 parseStatements = parse $ do
+  whiteSpace
   sts <- many statement
   eof
   return sts
@@ -68,8 +69,8 @@ functionDefinition = do
   whiteSpace
   ident <- identifier
   whiteSpace
-  matchClauses <- matchClauses
-  return $ FunctionDefinition ident matchClauses
+  block <- block
+  return $ Definition ident $ ValueExpression $ FunctionValue ident block
 
 constantDefinition = do
   whiteSpace
@@ -78,7 +79,7 @@ constantDefinition = do
   string "="
   whiteSpace
   expr <- expression ExpressionMode
-  return $ ConstantDefinition ident expr
+  return $ Definition ident expr
 
 
 patterns = parens (expressions PatternMode) <|> do
@@ -134,12 +135,12 @@ applies mode@ExpressionMode = factor mode >>= f
      <|> return left
 applies mode = try (do
   ident <- identifier
-  args <- parens (expressions VariableQuoteMode)
+  args <- parens (expressions mode)
   f (ApplyExpression (VariableExpression ident) args))
   <|> factor mode
   where
     f left = do
-      args <- parens (expressions VariableQuoteMode)
+      args <- parens (expressions mode)
       f (ApplyExpression left args)
      <|> return left
 
@@ -149,14 +150,8 @@ factor mode@ExpressionMode
   <|> VariableExpression <$> identifier
   <|> ListExpression <$> try (brackets $ expressions mode)
   <|> ObjectExpression <$> braces (P.commaSep lexer $ member mode)
-  <|> ClosureExpression <$> brackets matchClauses
+  <|> ClosureExpression <$> brackets block
 factor mode@PatternMode
-  = parens (operatorSystem mode)
-  <|> ValueExpression <$> valueExpression
-  <|> VariableExpression <$> identifier
-  <|> ListExpression <$> try (brackets $ expressions mode)
-  <|> ObjectExpression <$> braces (P.commaSep lexer $ member mode)
-factor mode@VariableQuoteMode
   = parens (operatorSystem mode)
   <|> ValueExpression <$> valueExpression
   <|> (ValueExpression . VariableValue) <$> identifier
@@ -173,12 +168,13 @@ member mode
     ident <- identifier
     return (ident, VariableExpression ident)
 
-matchClauses = sepBy1
+block = sepBy1
  (do
     patterns <- patterns
     guardClausesOrBody <- body <|> guardClauses
-    return (patterns, guardClausesOrBody))
- comma
+    whereClause <- (braces $ sepEndBy1 definition (Text.Parsec.optional semi)) <|> return []
+    return (patterns, guardClausesOrBody, whereClause))
+  comma
 
 body = do
   whiteSpace

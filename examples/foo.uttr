@@ -1,5 +1,15 @@
 // it's a comment
 
+{
+  a: 1,
+  b: 1.2,
+  c: "3",
+	d: [true, false, null],
+  e: [[], [1], [1, 2]]
+}
+
+{a: 1, a: 2}
+
 range
 	(end) = range(0, end, 1),
 	(start, end, step)
@@ -17,8 +27,8 @@ if(true, "true!", "false!")
 if(false, "true!", "false!")
 if(null, "true!", "false!")
 
-map(fun, x:xs) = fun(x):map(fun, xs)
-map(_, []) = []
+map(fun, x:xs) = fun(x):map(fun, xs),
+   (_, []) = []
 
 foldl
 	(fun, l, []) = l,
@@ -37,9 +47,9 @@ fail() | false = nil
 
 fb x
 	| x % 15 == 0 = "fizzbuzz"
-	| x % 3 == 0 = "fizz"
-	| x % 5 == 0 = "buzz"
-	| x = str(x)
+	| x % 3 == 0  = "fizz"
+	| x % 5 == 0  = "buzz"
+	| x           = str(x)
 
 range(10)
 
@@ -62,3 +72,11 @@ hoge("l!", hoge("rl!", "rr!"))
 
 ;[hoge(x, y) = [x, y], _ = null](hoge("l!", hoge("rl!", "rr!")))
 ;[hoge(x, hoge(y, z)) = [x, y, z], hoge(x, y) = [x, y], _ = null](hoge("l!", hoge("rl!", "rr!")))
+
+;map([x=x+1], [1, 2, 3])
+
+fff x = x + y + z
+  { y = x + x;
+	 	z = x + y}
+
+fff(3)

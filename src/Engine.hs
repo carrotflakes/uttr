@@ -19,23 +19,11 @@ initialEnv = fromList $ fmap (\x -> (x, StringValue x)) ["*", "/", "%", "+", "-"
 
 
 evalStatement :: Env -> Statement -> Either (Maybe String) (Env, String)
-evalStatement env (ExpressionStatement expr) =
-  case evalExpression ([], env) expr of
-    Right evaled -> Right (env, show evaled)
-    Left err -> Left err
+evalStatement env (ExpressionStatement expr) = case evalExpression ([], env) expr of
+  Right evaled -> Right (env, show evaled)
+  Left err -> Left err
 
-evalStatement env (DefinitionStatement (FunctionDefinition ident matchClauses))
-  = case Map.lookup ident env of
-  Just (FunctionValue ident matchClauses')
-    -> Right (Map.insert ident func env, show func)
-    where func = FunctionValue ident $ matchClauses' ++ matchClauses
-  Nothing
-    -> Right (Map.insert ident func env, show func)
-    where func = FunctionValue ident matchClauses
-  Just value -> Left $ Just $ "Cannot overwrite with function: " ++ show value
-
--- TODO matchで書く
-evalStatement env (DefinitionStatement (ConstantDefinition ident expr))
+evalStatement env (DefinitionStatement (Definition ident expr))
   = case evalExpression ([], env) expr of
   Right evaled -> Right (Map.insert ident evaled env, show evaled)
   Left err -> Left err
@@ -58,11 +46,13 @@ evalExpression scope (ListExpression exprs)
 evalExpression scope (ObjectExpression membs)
   = case find isLeft evaleds of
   Just left -> left
-  Nothing -> Right $ ObjectValue $ zip (fmap fst membs) (rights evaleds)
-  where evaleds = fmap (evalExpression scope) $ fmap snd membs
+  Nothing -> Right $ ObjectValue $ unique $ zip (fmap fst membs) (rights evaleds)
+  where
+    evaleds = fmap (evalExpression scope) $ fmap snd membs
+    unique = reverse . nubBy (\x y -> fst x == fst y) . reverse
 
-evalExpression scope (ApplyExpression opExpr paramExprs) =
-  case find isLeft evaledExprs of
+evalExpression scope (ApplyExpression opExpr paramExprs)
+  = case find isLeft evaledExprs of
     Just left -> left
     Nothing -> apply scope op params
   where
@@ -76,14 +66,14 @@ evalExpression scope (ConsExpression carExpr cdrExpr)
   (_, Right value) -> Left $ Just $ "The expression must be evaluated as a list: " ++ show cdrExpr
   (_, Left err) -> Left err
 
-evalExpression scope (ClosureExpression matchClauses) = Right $ ClosureValue scope matchClauses
+evalExpression scope (ClosureExpression block) = Right $ ClosureValue scope block
 
 
 apply :: Scope -> Value -> [Value] -> Either (Maybe String) Value
-apply (alist, env) (FunctionValue ident matchClauses) args
-  = applyFunction ([], env) matchClauses args
+apply (alist, env) (FunctionValue ident block) args
+  = applyFunction ([], env) block args
 
-apply _ (ClosureValue scope matchClauses) args = applyFunction scope matchClauses args
+apply _ (ClosureValue scope block) args = applyFunction scope block args
 
 apply scope (StringValue "*") params =
   case params of
@@ -153,32 +143,40 @@ apply scope (StringValue "[]") [ObjectValue members, _]
 apply scope (StringValue "[]") [value, _]
   = Left $ Just $ "Cannot get member from: " ++ show value
 
-apply scope (StringValue "str") [param] = Right $ StringValue $ show param
+apply scope (StringValue "str") [param] = Right $ StringValue $ case param of
+  StringValue string -> string
+  value -> show value
 
 apply scope value _ = Left $ Just $ "Not function: " ++ show value
 
 
-applyFunction :: Scope -> [([Expression], Either Expression [(Expression, Expression)])] -> [Value] -> Either (Maybe String) Value
-applyFunction scope@(alist, env) matchClauses args = f matchClauses
+applyFunction :: Scope -> Block -> [Value] -> Either (Maybe String) Value
+applyFunction scope matchClauses args = f matchClauses
   where
     f [] = Left Nothing
     f (matchClause:matchClauses) = case g matchClause of
       right@(Right _) -> right
       Left Nothing -> f matchClauses
       left@(Left (Just err)) -> left
-    g (patterns, Left body) = case match scope (ListExpression patterns) (ListValue args) of
-      Just bindings -> i bindings body
+    g (patterns, bodyOrGuardClauses, defs)
+      = case match scope (ListExpression patterns) (ListValue args) of
+      Just bindings -> do
+        scope <- procDefinitions (bind scope bindings) defs
+        case bodyOrGuardClauses of
+          Left body -> evalExpression scope body
+          Right guardClauses -> h scope guardClauses
       Nothing -> Left Nothing
-    g (patterns, Right guardClauses) = case match scope (ListExpression patterns) (ListValue args) of
-      Just bindings -> h bindings guardClauses
-      Nothing -> Left Nothing
-    h bindings [] = Left Nothing
-    h bindings ((guard, body):guardClauses) = do
-      value <- i bindings guard
+    h scope [] = Left Nothing
+    h scope ((guard, body):guardClauses) = do
+      value <- evalExpression scope guard
       if truthy value
-        then i bindings body
-        else h bindings guardClauses
-    i bindings body = evalExpression (bindings ++ alist, env) body
+        then evalExpression scope body
+        else h scope guardClauses
+    procDefinitions scope [] = return scope
+    procDefinitions scope (Definition ident expr:defs) = do
+      evaled <- evalExpression scope expr
+      procDefinitions (bind scope [(ident, evaled)]) defs
+    bind (alist, env) bindings = (bindings ++ alist, env)
 
 
 match :: Scope -> Expression -> Value -> Maybe [(Identifier, Value)]
@@ -224,15 +222,8 @@ match' scope alist expr value = error $ "Cannot match " ++ show expr ++ " with "
 expressify (ListValue elms) = ListExpression $ fmap expressify elms
 expressify (ObjectValue membs) = ObjectExpression $ fmap (\(k, v) -> (k, expressify v)) membs
 expressify (VariableValue ident) = VariableExpression ident
-expressify value = ValueExpression value
-{-
-  = NumberValue Double
-  | StringValue String
-  | BoolValue Bool
-  | NullValue
-  | FunctionValue Identifier [([Expression], Either Expression [(Expression, Expression)])]
-  | ClosureValue Scope [([Expression], Either Expression [(Expression, Expression)])]
--}
+expressify value = ValueExpression value -- NumberValue StringValue BoolValue NullValue FunctionValue ClosureValue
+
 
 resolve :: Scope -> Identifier -> Maybe Value
 resolve (alist, env) ident = msum [Data.List.lookup ident alist, Map.lookup ident env]

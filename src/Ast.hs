@@ -13,14 +13,14 @@ type Scope = ([(Identifier, Value)], Env)
 
 type Identifier = String
 
+type Block = [([Expression], Either Expression [(Expression, Expression)], [Definition])]
+
 data Statement
   = DefinitionStatement Definition
   | ExpressionStatement Expression
   deriving (Eq)
 
-data Definition
-  = FunctionDefinition Identifier [([Expression], Either Expression [(Expression, Expression)])]
-  | ConstantDefinition Identifier Expression
+data Definition = Definition Identifier Expression
   deriving (Eq)
 
 type Operator = String
@@ -32,7 +32,7 @@ data Expression
   | ListExpression [Expression]
   | ObjectExpression [(String, Expression)]
   | ConsExpression Expression Expression
-  | ClosureExpression [([Expression], Either Expression [(Expression, Expression)])]
+  | ClosureExpression Block
   deriving (Eq)
 --  | TemplateLitteral
 
@@ -43,8 +43,8 @@ data Value
   | NullValue
   | ListValue [Value]
   | ObjectValue [(String, Value)]
-  | FunctionValue Identifier [([Expression], Either Expression [(Expression, Expression)])]
-  | ClosureValue Scope [([Expression], Either Expression [(Expression, Expression)])]
+  | FunctionValue Identifier Block
+  | ClosureValue Scope Block
   | VariableValue Identifier
   deriving (Eq)
 
@@ -54,13 +54,15 @@ instance Show Statement where
   show (ExpressionStatement expression) = show expression
 
 instance Show Definition where
-  show (FunctionDefinition ident matchClauses)
-    = ident ++ " " ++ intercalate ", " (map showMC matchClauses)
+  show (Definition ident (ValueExpression (FunctionValue _ block)))
+    = ident ++ " " ++ intercalate ", " (map showMC block)
     where
-      showMC (patterns, Left body) = showPatterns patterns ++ " = " ++ show body
-      showMC (patterns, Right guardClauses) = showPatterns patterns ++ concat (map showGC guardClauses)
+      showMC (patterns, Left body, whereClause) = showPatterns patterns ++ " = " ++ show body ++ showWC whereClause
+      showMC (patterns, Right guardClauses, whereClause) = showPatterns patterns ++ concat (map showGC guardClauses) ++ showWC whereClause
       showGC (guard, body) = " | " ++ show guard ++ " = " ++ show body
-  show (ConstantDefinition ident body)
+      showWC [] = ""
+      showWC defs = " {" ++ intercalate "; " (map show defs) ++ "}"
+  show (Definition ident body)
     = ident ++ " = " ++ show body
 
 instance Show Expression where
@@ -73,11 +75,13 @@ instance Show Expression where
     = "{" ++ intercalate ", " (map showMember membs) ++ "}"
     where showMember (key, value) = shows key $ ": " ++ show value
   show (ConsExpression car cdr) = shows car $ ":" ++ show cdr
-  show (ClosureExpression matchClauses) = "[" ++ intercalate ", " (map showMC matchClauses) ++ "]"
+  show (ClosureExpression block) = "[" ++ intercalate ", " (map showMC block) ++ "]"
     where
-      showMC (patterns, Left body) = showPatterns patterns ++ " = " ++ show body
-      showMC (patterns, Right guardClauses) = showPatterns patterns ++ concat (map showGC guardClauses)
+      showMC (patterns, Left body, whereClause) = showPatterns patterns ++ " = " ++ show body ++ showWC whereClause
+      showMC (patterns, Right guardClauses, whereClause) = showPatterns patterns ++ concat (map showGC guardClauses) ++ showWC whereClause
       showGC (guard, body) = " | " ++ show guard ++ " = " ++ show body
+      showWC [] = ""
+      showWC defs = " {" ++ intercalate "; " (map show defs) ++ "}"
 
 instance Show Value where
   show (NumberValue value)
