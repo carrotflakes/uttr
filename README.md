@@ -14,6 +14,7 @@ Uttr is a minimal programming language for processing JSON.
 - Boolean: `true` `false`
 - Null: `null`
 - Function
+- Closure: `[x=x+1]`
 - Object: `{a: "foo", b: 123}`
 - List: `["foo", 123]`
 
@@ -81,6 +82,13 @@ evenOrOdd(x)
 | true = "odd!"
 ```
 
+##### Function with where clause
+
+```
+f(x) = g x
+  { g x = x + 1 }
+```
+
 ### Expression
 #### Function apply
 
@@ -93,7 +101,9 @@ evenOrOdd(x)
 #### Anonymous function
 
 ```
-> [a = a + 1](1)
+> [x = x + 1]
+<closure>
+> [x = x + 1](1)
 2
 > [1 = "one", 2 = "tow"](1)
 "one"

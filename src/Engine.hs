@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Engine
     ( evalStatement,
       initialEnv,
@@ -10,30 +12,38 @@ import Data.Either
 import Data.Maybe
 import Control.Monad
 import Control.Applicative
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
+import Text.Show.Unicode
 
 
 import Ast
+import Print
 
 
-initialEnv = fromList $ fmap (\x -> (x, StringValue x)) ["*", "/", "%", "+", "-", "str"]
+show' :: ShowU a => a -> Text
+show' = showU
 
 
-evalStatement :: Env -> Statement -> Either (Maybe String) (Env, String)
+initialEnv = fromList $ fmap (\x -> (x, StringValue x)) ["*", "/", "%", "+", "-", "str", "json"]
+
+
+evalStatement :: Env -> Statement -> Either (Maybe Text) (Env, Value)
 evalStatement env (ExpressionStatement expr) = case evalExpression ([], env) expr of
-  Right evaled -> Right (env, show evaled)
+  Right evaled -> Right (env, evaled)
   Left err -> Left err
 
 evalStatement env (DefinitionStatement (Definition ident expr))
   = case evalExpression ([], env) expr of
-  Right evaled -> Right (Map.insert ident evaled env, show evaled)
+  Right evaled -> Right (Map.insert ident evaled env, evaled)
   Left err -> Left err
 
 
-evalExpression :: Scope -> Expression -> Either (Maybe String) Value
+evalExpression :: Scope -> Expression -> Either (Maybe Text) Value
 evalExpression scope (VariableExpression ident)
   = case resolve scope ident of
   Just value -> Right value
-  Nothing -> Left $ Just $ "Cannot resolved: " ++ ident
+  Nothing -> Left $ Just $ "Cannot resolved: " `T.append` ident
 
 evalExpression scope (ValueExpression value) = Right value
 
@@ -63,13 +73,13 @@ evalExpression scope (ConsExpression carExpr cdrExpr)
   = case (evalExpression scope carExpr, evalExpression scope cdrExpr) of
   (Right carValue, Right (ListValue elms)) -> Right $ ListValue $ carValue : elms
   (Left err, _) -> Left err
-  (_, Right value) -> Left $ Just $ "The expression must be evaluated as a list: " ++ show cdrExpr
+  (_, Right value) -> Left $ Just $ "The expression must be evaluated as a list: " `T.append` show' cdrExpr
   (_, Left err) -> Left err
 
 evalExpression scope (ClosureExpression block) = Right $ ClosureValue scope block
 
 
-apply :: Scope -> Value -> [Value] -> Either (Maybe String) Value
+apply :: Scope -> Value -> [Value] -> Either (Maybe Text) Value
 apply (alist, env) (FunctionValue ident block) args
   = applyFunction ([], env) block args
 
@@ -78,28 +88,28 @@ apply _ (ClosureValue scope block) args = applyFunction scope block args
 apply scope (StringValue "*") params =
   case params of
     [NumberValue n1, NumberValue n2] -> Right $ NumberValue (n1 * n2)
-    _ -> Left $ Just $ "Unexpected argument of * operator: " ++ show params
+    _ -> Left $ Just $ "Unexpected argument of * operator: " `T.append` show' params
 
 apply scope (StringValue "/") params =
   case params of
     [NumberValue n1, NumberValue n2] -> Right $ NumberValue (n1 / n2)
-    _ -> Left $ Just $ "Unexpected argument of / operator: " ++ show params
+    _ -> Left $ Just $ "Unexpected argument of / operator: " `T.append` show' params
 
 apply scope (StringValue "+") params =
   case params of
     [NumberValue n1, NumberValue n2] -> Right $ NumberValue (n1 + n2)
-    [StringValue s1, StringValue s2] -> Right $ StringValue (s1 ++ s2)
-    _ -> Left $ Just $ "Unexpected argument of + operator: " ++ show params
+    [StringValue s1, StringValue s2] -> Right $ StringValue (s1 `T.append` s2)
+    _ -> Left $ Just $ "Unexpected argument of + operator: " `T.append` show' params
 
 apply scope (StringValue "-") params =
   case params of
     [NumberValue n1, NumberValue n2] -> Right $ NumberValue (n1 - n2)
-    _ -> Left $ Just $ "Unexpected argument of - operator: " ++ show params
+    _ -> Left $ Just $ "Unexpected argument of - operator: " `T.append` show' params
 
 apply scope (StringValue "%") params =
   case params of
     [NumberValue n1, NumberValue n2] -> Right $ NumberValue $ fromIntegral (round n1 `mod` round n2) -- FIXME
-    _ -> Left $ Just $ "Unexpected argument of % operator: " ++ show params
+    _ -> Left $ Just $ "Unexpected argument of % operator: " `T.append` show' params
 
 apply scope (StringValue "==") [lhs, rhs]
   = Right $ BoolValue $ lhs == rhs
@@ -130,8 +140,8 @@ apply scope (StringValue "[]") [ListValue values, NumberValue idxNum]
   where idx = round idxNum
 apply scope (StringValue "[]") [ListValue values, _]
   = Left $ Nothing
-apply scope (StringValue "[]") [ObjectValue members, NumberValue idx]
-  = case Data.List.lookup (show idx) members of
+apply scope (StringValue "[]") [ObjectValue members, num@(NumberValue idx)]
+  = case Data.List.lookup (show' num) members of
   Just value -> Right $ value
   Nothing -> Left $ Nothing
 apply scope (StringValue "[]") [ObjectValue members, StringValue key]
@@ -141,16 +151,27 @@ apply scope (StringValue "[]") [ObjectValue members, StringValue key]
 apply scope (StringValue "[]") [ObjectValue members, _]
   = Left $ Nothing
 apply scope (StringValue "[]") [value, _]
-  = Left $ Just $ "Cannot get member from: " ++ show value
+  = Left $ Just $ "Cannot get member from: " `T.append` show' value
 
 apply scope (StringValue "str") [param] = Right $ StringValue $ case param of
   StringValue string -> string
-  value -> show value
+  value -> show' value
 
-apply scope value _ = Left $ Just $ "Not function: " ++ show value
+apply scope (StringValue "json") [param] = case check param of
+  Nothing -> Right $ StringValue $ show' param
+  Just value -> Left $ Just $ "Cannot jsonify: " `T.append` show' value
+  where
+    check (ListValue elms) = msum $ fmap check elms
+    check (ObjectValue membs) = msum $ fmap (check . snd) membs
+    check v@(FunctionValue _ _) = Just v
+    check v@(ClosureValue _ _) = Just v
+    check v@(VariableValue _) = Just v
+    check _ = Nothing
+
+apply scope value _ = Left $ Just $ "Not function: " `T.append` show' value
 
 
-applyFunction :: Scope -> Block -> [Value] -> Either (Maybe String) Value
+applyFunction :: Scope -> Block -> [Value] -> Either (Maybe Text) Value
 applyFunction scope matchClauses args = f matchClauses
   where
     f [] = Left Nothing
@@ -176,7 +197,6 @@ applyFunction scope matchClauses args = f matchClauses
     procDefinitions scope (Definition ident expr:defs) = do
       evaled <- evalExpression scope expr
       procDefinitions (bind scope [(ident, evaled)]) defs
-    bind (alist, env) bindings = (bindings ++ alist, env)
 
 
 match :: Scope -> Expression -> Value -> Maybe [(Identifier, Value)]
@@ -217,6 +237,10 @@ match' scope alist applyExpr@(ApplyExpression _ _) value
   Left _ -> Nothing -- TODO: Left (Just _) だったときの挙動
 
 match' scope alist expr value = error $ "Cannot match " ++ show expr ++ " with " ++ show value
+
+
+bind (alist, env) bindings = (bindings' ++ alist, env)
+  where bindings' = Data.List.filter (not . T.isPrefixOf "_" . fst) bindings
 
 
 expressify (ListValue elms) = ListExpression $ fmap expressify elms

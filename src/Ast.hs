@@ -4,6 +4,11 @@ module Ast
 
 import Data.List
 import Data.Map.Strict (Map)
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
+
+
+type Text = T.Text
 
 
 type Env = Map Identifier Value
@@ -11,7 +16,7 @@ type Env = Map Identifier Value
 type Scope = ([(Identifier, Value)], Env)
 
 
-type Identifier = String
+type Identifier = Text
 
 type Block = [([Expression], Either Expression [(Expression, Expression)], [Definition])]
 
@@ -23,26 +28,24 @@ data Statement
 data Definition = Definition Identifier Expression
   deriving (Eq)
 
-type Operator = String
-
 data Expression
   = ValueExpression Value
   | VariableExpression Identifier
   | ApplyExpression Expression [Expression]
   | ListExpression [Expression]
-  | ObjectExpression [(String, Expression)]
+  | ObjectExpression [(Text, Expression)]
   | ConsExpression Expression Expression
+  | TemplateLiteralExpression [Either Expression Text]
   | ClosureExpression Block
   deriving (Eq)
---  | TemplateLitteral
 
 data Value
   = NumberValue Double
-  | StringValue String
+  | StringValue Text
   | BoolValue Bool
   | NullValue
   | ListValue [Value]
-  | ObjectValue [(String, Value)]
+  | ObjectValue [(Text, Value)]
   | FunctionValue Identifier Block
   | ClosureValue Scope Block
   | VariableValue Identifier
@@ -55,7 +58,7 @@ instance Show Statement where
 
 instance Show Definition where
   show (Definition ident (ValueExpression (FunctionValue _ block)))
-    = ident ++ " " ++ intercalate ", " (map showMC block)
+    = (T.unpack ident) ++ " " ++ intercalate ", " (map showMC block)
     where
       showMC (patterns, Left body, whereClause) = showPatterns patterns ++ " = " ++ show body ++ showWC whereClause
       showMC (patterns, Right guardClauses, whereClause) = showPatterns patterns ++ concat (map showGC guardClauses) ++ showWC whereClause
@@ -63,11 +66,11 @@ instance Show Definition where
       showWC [] = ""
       showWC defs = " {" ++ intercalate "; " (map show defs) ++ "}"
   show (Definition ident body)
-    = ident ++ " = " ++ show body
+    = (T.unpack ident) ++ " = " ++ show body
 
 instance Show Expression where
   show (ValueExpression value) = show value
-  show (VariableExpression ident) = ident
+  show (VariableExpression ident) = (T.unpack ident)
   show (ApplyExpression func args)
     = shows func $ "(" ++ intercalate ", " (map show args) ++ ")"
   show (ListExpression elms) = "[" ++ intercalate ", " (map show elms) ++ "]"
@@ -94,9 +97,9 @@ instance Show Value where
   show (ListValue elms) = "[" ++ intercalate ", " (map show elms) ++ "]"
   show (ObjectValue membs) = "{" ++ intercalate ", " (map showMember membs) ++ "}"
     where showMember (key, value) = shows key $ ": " ++ show value
-  show (FunctionValue ident _) = "<function " ++ ident ++ ">"
+  show (FunctionValue ident _) = "<function " ++ (T.unpack ident) ++ ">"
   show (ClosureValue _ matchClauses) = "<closure>"
-  show (VariableValue ident) = ident
+  show (VariableValue ident) = (T.unpack ident)
 
 showPatterns [pattern] = show pattern
 showPatterns patterns = "(" ++ intercalate ", " (map show patterns) ++ ")"

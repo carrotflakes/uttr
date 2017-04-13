@@ -80,3 +80,26 @@ fff x = x + y + z
 	 	z = x + y}
 
 fff(3)
+
+fib n | 1 < n = fib(n - 1) + fib(n - 2) | true = n
+
+fib(10)
+
+;[(a, a)=true, (a, b)=false](1, 1)
+;[(a, a)=true, (a, b)=false](1, 2)
+
+;json([1, "こんにちは", 1.2, true, false, null, {a: 1, "b": 2}])
+
+want(sub, verb, obj) = {type: "want", subject: sub, verb: verb, object: obj}
+
+w = want("I", "drink", "a juice")
+
+print(want(s, v, o)) = s + " want to " + v + " " + o
+print(w)
+
+same
+  (x, x) = true,
+	(x, y)
+	  | x != y = false;
+
+[same(1, 2), same(2, 2)]

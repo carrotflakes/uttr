@@ -3,12 +3,12 @@ module Parser
        parseStatements
      ) where
 
---import Text.Parsec.Prim
---import Text.Parsec.Combinator
 import Text.Parsec
 import Text.Parsec.Expr
 import qualified Text.Parsec.Token as P
 import Text.Parsec.Language
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
 
 import Control.Applicative hiding ((<|>), many)
 
@@ -29,12 +29,12 @@ whiteSpace = P.whiteSpace lexer
 parens = P.parens lexer
 brackets = P.brackets lexer
 braces = P.braces lexer
-identifier = P.identifier lexer
+identifier = T.pack <$> P.identifier lexer
 reserved = P.reserved lexer
 reservedOp = P.reservedOp lexer
 integer = P.integer lexer
 float = P.float lexer
-stringLiteral = P.stringLiteral lexer
+stringLiteral = T.pack <$> P.stringLiteral lexer
 comma = P.comma lexer
 semi = P.semi lexer
 
@@ -116,7 +116,7 @@ operators mode =
   where
     infixOp name assoc =
       Infix (reservedOp name >>
-             return (\x y -> ApplyExpression (ValueExpression $ StringValue name) [x, y]))
+             return (\x y -> ApplyExpression (ValueExpression $ StringValue $ T.pack name) [x, y]))
       assoc
 
 applies mode@ExpressionMode = factor mode >>= f
@@ -126,11 +126,11 @@ applies mode@ExpressionMode = factor mode >>= f
       f (ApplyExpression left args)
      <|> do
       arg <- brackets (expression mode)
-      f (ApplyExpression (ValueExpression $ StringValue "[]") [left, arg])
+      f (ApplyExpression (ValueExpression $ StringValue $ T.pack "[]") [left, arg])
      <|> do
       P.dot lexer
       ident <- identifier
-      f (ApplyExpression (ValueExpression $ StringValue "[]")
+      f (ApplyExpression (ValueExpression $ StringValue $ T.pack"[]")
          [left, ValueExpression $ StringValue ident])
      <|> return left
 applies mode = try (do

@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Lib
     ( someFunc
     ) where
@@ -6,9 +8,12 @@ import System.IO
 import Data.Map
 import Control.Monad
 import Control.Applicative
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
 
 import Parser
 import Engine
+import Print
 
 
 someFunc :: IO ()
@@ -25,11 +30,11 @@ someFunc = do
     f env (st:sts) = case evalStatement env st of
 
       Right (env', result) -> do
-        putStrLn $ result
+        T.putStrLn $ showU result
         f env' sts
 
       Left err -> do
-        putStrLn $ maybe "Backtracked" id err
+        T.putStrLn $ maybe "Backtracked" id err
 
     f _ [] = return ()
 
@@ -46,15 +51,15 @@ rep env str =
     Right st -> case evalStatement env st of
 
       Right (env', result) -> do
-        putStrLn $ result
+        T.putStrLn $ showU result
         return env'
 
       Left err -> do
-        putStrLn $ maybe "Backtracked" id err
+        T.putStrLn $ maybe "Backtracked" id err
         return env
 
     Left err -> do
-      putStrLn $ "Oops! " ++ show err
+      putStrLn $ "Oops! " ++ str
       return env
 
 
