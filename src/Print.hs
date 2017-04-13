@@ -42,7 +42,9 @@ instance ShowU Expression where
   showU (ListExpression elms) = join $ ["["] ++ intersperse ", " (map showU elms) ++ ["]"]
   showU (ObjectExpression membs)
     = join $ ["{"] ++ intersperse ", " (map showMember membs) ++ ["}"]
-    where showMember (key, value) = join [key, ": ", showU value]
+    where
+      showMember (PropertyMember key expr) = join [T.pack $ ushow key, ": ", showU expr]
+      showMember (SpreadMember expr) = join ["...", showU expr]
   showU (ConsExpression car cdr) = join [showU car, ":", showU cdr]
   showU (ClosureExpression block) = join $ ["["] ++ intersperse ", " (map showMC block) ++ ["]"]
     where

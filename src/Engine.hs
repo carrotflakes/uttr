@@ -54,11 +54,19 @@ evalExpression scope (ListExpression exprs)
   where evaleds = fmap (evalExpression scope) exprs
 
 evalExpression scope (ObjectExpression membs)
-  = case find isLeft evaleds of
-  Just left -> left
-  Nothing -> Right $ ObjectValue $ unique $ zip (fmap fst membs) (rights evaleds)
+  =do
+    evaledMembers <- mapM evalMember membs
+    return $ ObjectValue $ unique $ concat evaledMembers
   where
-    evaleds = fmap (evalExpression scope) $ fmap snd membs
+    evalMember (PropertyMember key expr) = do
+      value <- evalExpression scope expr
+      return [(key, value)]
+    evalMember (SpreadMember expr) = do
+      value <- evalExpression scope expr
+      case value of
+        ObjectValue membs -> return membs
+        _ -> Left $ Just $ "The expression must be evaluated as a object: " `T.append` show' expr
+
     unique = reverse . nubBy (\x y -> fst x == fst y) . reverse
 
 evalExpression scope (ApplyExpression opExpr paramExprs)
@@ -180,6 +188,7 @@ applyFunction scope matchClauses args = f matchClauses
       right@(Right _) -> right
       Left Nothing -> f matchClauses
       left@(Left (Just err)) -> left
+
     g (patterns, bodyOrGuardClauses, defs)
       = case match scope (ListExpression patterns) (ListValue args) of
       Just bindings -> do
@@ -188,12 +197,14 @@ applyFunction scope matchClauses args = f matchClauses
           Left body -> evalExpression scope body
           Right guardClauses -> h scope guardClauses
       Nothing -> Left Nothing
+
     h scope [] = Left Nothing
     h scope ((guard, body):guardClauses) = do
       value <- evalExpression scope guard
       if truthy value
         then evalExpression scope body
         else h scope guardClauses
+
     procDefinitions scope [] = return scope
     procDefinitions scope (Definition ident expr:defs) = do
       evaled <- evalExpression scope expr
@@ -221,10 +232,12 @@ match' scope alist (ListExpression exprs) (ListValue values)
   | otherwise = Nothing
   where f alist (e, v) = match' scope alist e v
 
-match' scope alist (ObjectExpression membExprs) (ObjectValue membVals)
+match' scope alist objExpr@(ObjectExpression membs) (ObjectValue membVals)
   = match' scope alist (ListExpression $ fmap fst pairs) (ListValue $ fmap snd pairs)
   where
-    pairs = Data.Maybe.mapMaybe (\(k, v) -> ((,) v) `fmap` Data.List.lookup k membVals) membExprs
+    pairs = Data.Maybe.mapMaybe f membs
+    f (PropertyMember key expr) = ((,) expr) `fmap` Data.List.lookup key membVals
+    f memb@(SpreadMember _) = error $ "Cannot use spread notation as pattern: " ++ show objExpr
 
 match' scope alist (ConsExpression carExpr cdrExpr) (ListValue values)
   | length values /= 0 = do
@@ -245,7 +258,7 @@ bind (alist, env) bindings = (bindings' ++ alist, env)
 
 
 expressify (ListValue elms) = ListExpression $ fmap expressify elms
-expressify (ObjectValue membs) = ObjectExpression $ fmap (\(k, v) -> (k, expressify v)) membs
+expressify (ObjectValue membs) = ObjectExpression $ fmap (\(k, v) -> PropertyMember k (expressify v)) membs
 expressify (VariableValue ident) = VariableExpression ident
 expressify value = ValueExpression value -- NumberValue StringValue BoolValue NullValue FunctionValue ClosureValue
 

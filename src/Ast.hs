@@ -33,10 +33,15 @@ data Expression
   | VariableExpression Identifier
   | ApplyExpression Expression [Expression]
   | ListExpression [Expression]
-  | ObjectExpression [(Text, Expression)]
+  | ObjectExpression [ObjectExpressionMember]
   | ConsExpression Expression Expression
   | TemplateLiteralExpression [Either Expression Text]
   | ClosureExpression Block
+  deriving (Eq)
+
+data ObjectExpressionMember
+  = PropertyMember Text Expression
+  | SpreadMember Expression
   deriving (Eq)
 
 data Value
@@ -76,7 +81,9 @@ instance Show Expression where
   show (ListExpression elms) = "[" ++ intercalate ", " (map show elms) ++ "]"
   show (ObjectExpression membs)
     = "{" ++ intercalate ", " (map showMember membs) ++ "}"
-    where showMember (key, value) = shows key $ ": " ++ show value
+    where
+      showMember (PropertyMember key expr) = shows key $ ": " ++ show expr
+      showMember (SpreadMember expr) = "..." ++ show expr
   show (ConsExpression car cdr) = shows car $ ":" ++ show cdr
   show (ClosureExpression block) = "[" ++ intercalate ", " (map showMC block) ++ "]"
     where

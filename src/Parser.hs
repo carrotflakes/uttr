@@ -132,7 +132,7 @@ applies mode@ExpressionMode = factor mode >>= f
      <|> do
       P.dot lexer
       ident <- identifier
-      f (ApplyExpression (ValueExpression $ StringValue $ T.pack"[]")
+      f (ApplyExpression (ValueExpression $ StringValue $ T.pack "[]")
          [left, ValueExpression $ StringValue ident])
      <|> return left
 applies mode = try (do
@@ -165,10 +165,15 @@ member mode
     ident <- identifier <|> stringLiteral
     P.colon lexer
     expr <- expression mode
-    return (ident, expr))
-  <|> do
+    return $ PropertyMember ident expr)
+  <|> (do
     ident <- identifier
-    return (ident, VariableExpression ident)
+    return $ PropertyMember ident (VariableExpression ident))
+  <|> (do
+    string "..."
+    whiteSpace
+    expr <- expression mode
+    return $ SpreadMember expr)
 
 block = sepBy1
  (do

@@ -88,7 +88,7 @@ fib(10)
 ;[(a, a)=true, (a, b)=false](1, 1)
 ;[(a, a)=true, (a, b)=false](1, 2)
 
-;json([1, "こんにちは", 1.2, true, false, null, {a: 1, "b": 2}])
+json([1, "こんにちは", 1.2, true, false, null, {a: 1, "b": 2}])
 
 want(sub, verb, obj) = {type: "want", subject: sub, verb: verb, object: obj}
 
@@ -100,6 +100,20 @@ print(w)
 same
   (x, x) = true,
 	(x, y)
-	  | x != y = false;
+	  | x != y = false
 
-[same(1, 2), same(2, 2)]
+;[same(1, 2), same(2, 2)]
+
+;{
+	a: 1,
+	...{a: 2, b: 3, c: 4},
+	b: 5
+}
+
+isPrime n = f(n-1)
+  { f x
+	    | x == 0 = false
+	    | n % x == 0 = true
+			| true = f(x-1) }
+
+map(isPrime, range(20))

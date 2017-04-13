@@ -31,6 +31,8 @@ Uttr is a minimal programming language for processing JSON.
   - `{a:123}.a == 123`
 - cons `:`
   - `1 : 2 : [3, 4] == [1, 2, 3, 4]`
+- spread `...`
+  - `{a: 1, ...{a: 2, b: 3, c: 4}, b: 5} == {a: 2, b: 5, c: 4}`
 
 ### Literals
 See data types.
