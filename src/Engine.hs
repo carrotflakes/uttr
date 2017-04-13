@@ -103,6 +103,7 @@ apply scope (StringValue "+") params =
 
 apply scope (StringValue "-") params =
   case params of
+    [NumberValue n1] -> Right $ NumberValue (negate n1)
     [NumberValue n1, NumberValue n2] -> Right $ NumberValue (n1 - n2)
     _ -> Left $ Just $ "Unexpected argument of - operator: " `T.append` show' params
 

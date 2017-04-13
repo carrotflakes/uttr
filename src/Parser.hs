@@ -93,7 +93,9 @@ expressions mode = sepBy (expression mode) comma
 operatorSystem mode = buildExpressionParser (operators mode) (applies mode)
 
 operators mode =
-  [ [ Infix (reservedOp ":" >> return ConsExpression) AssocRight
+  [ [ Prefix (reservedOp "-" >> return (\x -> apply "-" [x]))
+    ]
+  , [ Infix (reservedOp ":" >> return ConsExpression) AssocRight
     ]
   , [ infixOp "*" AssocLeft
     , infixOp "/" AssocLeft
@@ -115,9 +117,9 @@ operators mode =
   ]
   where
     infixOp name assoc =
-      Infix (reservedOp name >>
-             return (\x y -> ApplyExpression (ValueExpression $ StringValue $ T.pack name) [x, y]))
+      Infix (reservedOp name >> return (\x y -> apply name [x, y]))
       assoc
+    apply op args = ApplyExpression (ValueExpression $ StringValue $ T.pack op) args
 
 applies mode@ExpressionMode = factor mode >>= f
   where
