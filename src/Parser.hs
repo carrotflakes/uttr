@@ -21,7 +21,7 @@ languageDef = emptyDef
     P.commentEnd = "*/",
     P.commentLine = "//",
     P.nestedComments = True,
-    P.reservedNames = ["true", "false", "null"]
+    P.reservedNames = ["import", "true", "false", "null"]
   }
 
 lexer  = P.makeTokenParser languageDef
@@ -58,10 +58,19 @@ parseStatement = parse $ do
 
 
 statement = do
-  expr <- (DefinitionStatement <$> try definition <|>
-           ExpressionStatement <$> expression ExpressionMode)
+  st <- (DefinitionStatement <$> try definition <|>
+         ExpressionStatement <$> try (expression ExpressionMode) <|>
+         importStatement)
   Text.Parsec.optional semi
-  return expr
+  return st
+
+importStatement = do
+  whiteSpace
+  string "import"
+  whiteSpace
+  fi <- ((FileIndicator . T.unpack) <$> stringLiteral <|>
+         (ShortFileIndicator . T.unpack) <$> identifier)
+  return $ ImportStatement fi
 
 definition = try functionDefinition <|> constantDefinition
 
@@ -70,7 +79,7 @@ functionDefinition = do
   ident <- identifier
   whiteSpace
   block <- block
-  return $ Definition ident $ ValueExpression $ FunctionValue ident block
+  return $ FunctionDefinition ident block
 
 constantDefinition = do
   whiteSpace
@@ -79,7 +88,7 @@ constantDefinition = do
   string "="
   whiteSpace
   expr <- expression ExpressionMode
-  return $ Definition ident expr
+  return $ ConstantDefinition ident expr
 
 
 patterns = parens (expressions PatternMode) <|> do

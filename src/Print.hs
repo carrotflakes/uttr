@@ -23,7 +23,7 @@ instance ShowU Statement where
   showU (ExpressionStatement expression) = showU expression
 
 instance ShowU Definition where
-  showU (Definition ident (ValueExpression (FunctionValue _ block)))
+  showU (FunctionDefinition ident block)
     = join $ [ident, " "] ++ intersperse ", " (map showMC block)
     where
       showMC (patterns, Left body, whereClause) = join [showUPatterns patterns, " = ", showU body, showWC whereClause]
@@ -31,7 +31,7 @@ instance ShowU Definition where
       showGC (guard, body) = join [" | ", showU guard, " = ", showU body]
       showWC [] = ""
       showWC defs = join $ [" {"] ++ intersperse "; " (map showU defs) ++ ["}"]
-  showU (Definition ident body)
+  showU (ConstantDefinition ident body)
     = join [ident, " = ", showU body]
 
 instance ShowU Expression where

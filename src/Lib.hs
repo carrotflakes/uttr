@@ -21,22 +21,10 @@ someFunc' = test >>= repl
 someFunc = do
   input <- readFile "./examples/foo.uttr"
   case parseStatements "file" input of
-    Right sts -> print sts >> f initialEnv sts
+    Right sts -> foldM ep initialEnv sts >> return ()
 
     Left err -> do
-      putStrLn $ "Oops! " ++ show err
-
-  where
-    f env (st:sts) = case evalStatement env st of
-
-      Right (env', result) -> do
-        T.putStrLn $ showU result
-        f env' sts
-
-      Left err -> do
-        T.putStrLn $ maybe "Backtracked" id err
-
-    f _ [] = return ()
+      putStrLn $ "Parsing error: " ++ show err
 
 
 repl env = do
@@ -48,18 +36,21 @@ repl env = do
 
 rep env str =
   case parseStatement "input" str of
-    Right st -> case evalStatement env st of
-
-      Right (env', result) -> do
-        T.putStrLn $ showU result
-        return env'
-
-      Left err -> do
-        T.putStrLn $ maybe "Backtracked" id err
-        return env
+    Right st -> ep env st
 
     Left err -> do
-      putStrLn $ "Oops! " ++ str
+      putStrLn $ "Parsing error: " ++ str
+      return env
+
+ep env st = do
+  res <- doStatement env st
+  case res of
+    Right (env', result) -> do
+      T.putStrLn $ showU result
+      return env'
+
+    Left err -> do
+      T.putStrLn $ maybe "Backtracked" id err
       return env
 
 

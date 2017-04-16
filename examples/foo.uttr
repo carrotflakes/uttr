@@ -1,5 +1,7 @@
 // it's a comment
 
+import "./examples/prelude.uttr"
+
 {
   a: 1,
   b: -1.2,
@@ -10,34 +12,18 @@
 
 {a: 1, a: 2}
 
-range
-	(end) = range(0, end, 1),
-	(start, end, step)
-		| start < end = start:range(start + step, end, step)
-		| true = []
+;[1, 2, 3][2]
 
 /*
 comment
   /* recursive！?*/
 */
 
-if(cond, then, else) | cond = then | true = else
-
 if(true, "true!", "false!")
 if(false, "true!", "false!")
 if(null, "true!", "false!")
 
-map(fun, x:xs) = fun(x):map(fun, xs),
-   (_, []) = []
-
-foldl
-	(fun, l, []) = l,
-	(fun, l, r:rs) = foldl(fun, fun(l, r), rs)
-
-reverse_
-	([], ys) = ys,
-	(x:xs, ys) = reverse_(xs, x:ys)
-reverse(l) = reverse_(l, [])
+reverse([1, 2, 3])
 
 // join, concat
 
@@ -110,10 +96,13 @@ same
 	b: 5
 }
 
-isPrime n = f(n-1)
-  { f x
-	    | x == 0 = false
-	    | n % x == 0 = true
-			| true = f(x-1) }
+isPrime(n)
+  | n <= 1 = false
+	| true   = f(n-1)
+  { f(x)
+	    | x == 1     = true
+	    | n % x == 0 = false
+			| true       = f(x-1) }
 
-map(isPrime, range(20))
+map([x = [x, isPrime(x)]], range(20))
+filter(isPrime, range(100))

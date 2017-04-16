@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Engine
-    ( evalStatement,
+    ( doStatement,
       initialEnv,
       Env
     ) where
@@ -19,24 +19,48 @@ import Text.Show.Unicode
 
 import Ast
 import Print
+import Parser
 
 
 show' :: ShowU a => a -> Text
 show' = showU
 
 
-initialEnv = fromList $ fmap (\x -> (x, StringValue x)) ["*", "/", "%", "+", "-", "str", "json"]
+initialEnv = fromList $ fmap (\x -> (x, StringValue x)) ["*", "/", "%", "+", "-", "str", "json", "findall"]
 
 
-evalStatement :: Env -> Statement -> Either (Maybe Text) (Env, Value)
-evalStatement env (ExpressionStatement expr) = case evalExpression ([], env) expr of
+doStatement :: Env -> Statement -> IO (Either (Maybe Text) (Env, Value))
+doStatement env (ExpressionStatement expr) = return $ case evalExpression ([], env) expr of
   Right evaled -> Right (env, evaled)
   Left err -> Left err
 
-evalStatement env (DefinitionStatement (Definition ident expr))
-  = case evalExpression ([], env) expr of
-  Right evaled -> Right (Map.insert ident evaled env, evaled)
-  Left err -> Left err
+doStatement env (DefinitionStatement def) = return $ do
+  (ident, value) <- evalDefinition ([], env) def
+  return (Map.insert ident value env, value)
+
+doStatement env (ImportStatement fi) = do
+  input <- readFile (filePath fi)
+  case parseStatements (show fi) input of
+    Right sts -> f env sts
+    Left err -> return $ Left $ Just $ "Parsing error: " `T.append` (T.pack $ show err)
+  where
+    f env [] = return $ Right (env, BoolValue True)
+    f env (st:sts) = do
+      res <- doStatement env st
+      case res of
+        Right (env', result) -> f env' sts
+        Left err -> return $ Left $ Just $ (maybe "Backtracked" id err) `T.append` " in " `T.append` (T.pack $ show fi)
+
+
+evalDefinition :: Scope -> Definition -> Either (Maybe Text) (Identifier, Value)
+evalDefinition scope (FunctionDefinition ident matchClauses) = case resolve scope ident of
+  Just (FunctionValue ident matchClauses') -> Right (ident, FunctionValue ident $ matchClauses' ++ matchClauses)
+  Nothing -> Right (ident, FunctionValue ident matchClauses)
+  Just value -> Left $ Just $ "Cannot overwrite with function: " `T.append` show' value
+
+evalDefinition scope (ConstantDefinition ident expr) = do
+  evaled <- evalExpression scope expr
+  return (ident, evaled)
 
 
 evalExpression :: Scope -> Expression -> Either (Maybe Text) Value
@@ -69,13 +93,12 @@ evalExpression scope (ObjectExpression membs)
 
     unique = reverse . nubBy (\x y -> fst x == fst y) . reverse
 
-evalExpression scope (ApplyExpression opExpr paramExprs)
-  = case find isLeft evaledExprs of
+evalExpression scope (ApplyExpression opExpr paramExprs) = do
+  op <- evalExpression scope opExpr
+  let evaledExprs = fmap (evalExpression scope) paramExprs
+  case find isLeft evaledExprs of
     Just left -> left
-    Nothing -> apply scope op params
-  where
-    evaledExprs = fmap (evalExpression scope) (opExpr : paramExprs)
-    op : params = rights evaledExprs
+    Nothing -> apply scope op $ rights evaledExprs
 
 evalExpression scope (ConsExpression carExpr cdrExpr)
   = case (evalExpression scope carExpr, evalExpression scope cdrExpr) of
@@ -107,6 +130,7 @@ apply scope (StringValue "+") params =
   case params of
     [NumberValue n1, NumberValue n2] -> Right $ NumberValue (n1 + n2)
     [StringValue s1, StringValue s2] -> Right $ StringValue (s1 `T.append` s2)
+    [ListValue l1, ListValue l2] -> Right $ ListValue (l1 ++ l2)
     _ -> Left $ Just $ "Unexpected argument of + operator: " `T.append` show' params
 
 apply scope (StringValue "-") params =
@@ -189,13 +213,14 @@ applyFunction scope matchClauses args = f matchClauses
       Left Nothing -> f matchClauses
       left@(Left (Just err)) -> left
 
+    g :: ([Expression], Either Expression [(Expression, Expression)], [Definition]) -> Either (Maybe Text) Value
     g (patterns, bodyOrGuardClauses, defs)
       = case match scope (ListExpression patterns) (ListValue args) of
       Just bindings -> do
-        scope <- procDefinitions (bind scope bindings) defs
+        scope' <- procWhereClause (Data.List.foldr bind scope bindings) defs
         case bodyOrGuardClauses of
-          Left body -> evalExpression scope body
-          Right guardClauses -> h scope guardClauses
+          Left body -> evalExpression scope' body
+          Right guardClauses -> h scope' guardClauses
       Nothing -> Left Nothing
 
     h scope [] = Left Nothing
@@ -205,10 +230,20 @@ applyFunction scope matchClauses args = f matchClauses
         then evalExpression scope body
         else h scope guardClauses
 
-    procDefinitions scope [] = return scope
-    procDefinitions scope (Definition ident expr:defs) = do
+    procWhereClause :: Scope -> [Definition] -> Either (Maybe Text) Scope
+    procWhereClause scope defs = foldM procDefs scope defs
+      where
+        procDefs scope def = do
+          binding <- evalDefinition' scope def
+          return $ bind binding scope
+
+    evalDefinition' :: Scope -> Definition -> Either (Maybe Text) (Identifier, Value)
+    evalDefinition' scope (FunctionDefinition ident matchClauses) = return binding
+        where binding = (ident, ClosureValue (bind binding scope) matchClauses)
+
+    evalDefinition' scope (ConstantDefinition ident expr) = do
       evaled <- evalExpression scope expr
-      procDefinitions (bind scope [(ident, evaled)]) defs
+      return (ident, evaled)
 
 
 match :: Scope -> Expression -> Value -> Maybe [(Identifier, Value)]
@@ -222,10 +257,11 @@ match' scope alist (ValueExpression value) value'
   | otherwise = Nothing
 
 match' scope alist (VariableExpression ident) value
-  = case Data.List.lookup ident alist of
-  Just value' | value == value' -> Just alist
-  Just _ -> Nothing
-  Nothing -> Just $ (ident, value) : alist
+  | isWildcard ident = Just $ (ident, value) : alist
+  | otherwise = case Data.List.lookup ident alist of
+      Just value' | value == value' -> Just alist
+      Just _ -> Nothing
+      Nothing -> Just $ (ident, value) : alist
 
 match' scope alist (ListExpression exprs) (ListValue values)
   | length exprs == length values = foldM f alist $ zip exprs values
@@ -253,9 +289,9 @@ match' scope alist applyExpr@(ApplyExpression _ _) value
 match' scope alist expr value = error $ "Cannot match " ++ show expr ++ " with " ++ show value
 
 
-bind (alist, env) bindings = (bindings' ++ alist, env)
-  where bindings' = Data.List.filter (not . T.isPrefixOf "_" . fst) bindings
+bind binding (alist, env) = (binding : alist, env)
 
+scopeEnv (alist, env) = fromList alist `Map.union` env
 
 expressify (ListValue elms) = ListExpression $ fmap expressify elms
 expressify (ObjectValue membs) = ObjectExpression $ fmap (\(k, v) -> PropertyMember k (expressify v)) membs
@@ -271,3 +307,10 @@ truthy :: Value -> Bool
 truthy (BoolValue False) = False
 truthy NullValue = False
 truthy _ = True
+
+
+isWildcard = T.isPrefixOf "_"
+
+
+filePath (FileIndicator path) = path
+filePath (ShortFileIndicator name) = undefined

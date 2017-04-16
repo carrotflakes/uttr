@@ -20,12 +20,18 @@ type Identifier = Text
 
 type Block = [([Expression], Either Expression [(Expression, Expression)], [Definition])]
 
+data FileIndicator
+  = ShortFileIndicator String
+  | FileIndicator String
+
 data Statement
   = DefinitionStatement Definition
   | ExpressionStatement Expression
-  deriving (Eq)
+  | ImportStatement FileIndicator
 
-data Definition = Definition Identifier Expression
+data Definition
+  = FunctionDefinition Identifier Block
+  | ConstantDefinition Identifier Expression
   deriving (Eq)
 
 data Expression
@@ -57,12 +63,17 @@ data Value
   deriving (Eq)
 
 
+instance Show FileIndicator where
+  show (FileIndicator path) = show path
+  show (ShortFileIndicator path) = path
+
+
 instance Show Statement where
   show (DefinitionStatement definition) = show definition
   show (ExpressionStatement expression) = show expression
 
 instance Show Definition where
-  show (Definition ident (ValueExpression (FunctionValue _ block)))
+  show (FunctionDefinition ident block)
     = (T.unpack ident) ++ " " ++ intercalate ", " (map showMC block)
     where
       showMC (patterns, Left body, whereClause) = showPatterns patterns ++ " = " ++ show body ++ showWC whereClause
@@ -70,7 +81,7 @@ instance Show Definition where
       showGC (guard, body) = " | " ++ show guard ++ " = " ++ show body
       showWC [] = ""
       showWC defs = " {" ++ intercalate "; " (map show defs) ++ "}"
-  show (Definition ident body)
+  show (ConstantDefinition ident body)
     = (T.unpack ident) ++ " = " ++ show body
 
 instance Show Expression where
