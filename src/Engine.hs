@@ -3,9 +3,11 @@
 module Engine
     ( doStatement,
       initialEnv,
-      Env
+      Env,
+      CompileContext(..)
     ) where
 
+import System.FilePath.Posix
 import Data.Map as Map
 import Data.List
 import Data.Either
@@ -22,6 +24,12 @@ import Print
 import Parser
 
 
+data CompileContext = CompileContext { executablePath :: String,
+                                       currentDirectoryPath :: String,
+                                       currentFilePath :: Maybe String
+                                     }
+
+
 show' :: ShowU a => a -> Text
 show' = showU
 
@@ -29,24 +37,26 @@ show' = showU
 initialEnv = fromList $ fmap (\x -> (x, StringValue x)) ["*", "/", "%", "+", "-", "str", "json", "findall"]
 
 
-doStatement :: Env -> Statement -> IO (Either (Maybe Text) (Env, Value))
-doStatement env (ExpressionStatement expr) = return $ case evalExpression ([], env) expr of
+doStatement :: CompileContext -> Env -> Statement -> IO (Either (Maybe Text) (Env, Value))
+doStatement cctx env (ExpressionStatement expr) = return $ case evalExpression ([], env) expr of
   Right evaled -> Right (env, evaled)
   Left err -> Left err
 
-doStatement env (DefinitionStatement def) = return $ do
+doStatement cctx env (DefinitionStatement def) = return $ do
   (ident, value) <- evalDefinition ([], env) def
   return (Map.insert ident value env, value)
 
-doStatement env (ImportStatement fi) = do
-  input <- readFile (filePath fi)
+doStatement cctx env (ImportStatement fi) = do
+  input <- readFile path
   case parseStatements (show fi) input of
     Right sts -> f env sts
     Left err -> return $ Left $ Just $ "Parsing error: " `T.append` (T.pack $ show err)
   where
+    path = filePath cctx fi
     f env [] = return $ Right (env, BoolValue True)
     f env (st:sts) = do
-      res <- doStatement env st
+      let cctx' = cctx { currentFilePath = Just path }
+      res <- doStatement cctx' env st
       case res of
         Right (env', result) -> f env' sts
         Left err -> return $ Left $ Just $ (maybe "Backtracked" id err) `T.append` " in " `T.append` (T.pack $ show fi)
@@ -78,7 +88,7 @@ evalExpression scope (ListExpression exprs)
   where evaleds = fmap (evalExpression scope) exprs
 
 evalExpression scope (ObjectExpression membs)
-  =do
+  = do
     evaledMembers <- mapM evalMember membs
     return $ ObjectValue $ unique $ concat evaledMembers
   where
@@ -312,5 +322,8 @@ truthy _ = True
 isWildcard = T.isPrefixOf "_"
 
 
-filePath (FileIndicator path) = path
-filePath (ShortFileIndicator name) = undefined
+filePath cctx (FileIndicator path)
+  = joinPath [currentDirectoryPath cctx,
+              takeDirectory $ maybe "" id $ currentFilePath cctx,
+              path]
+filePath cctx (ShortFileIndicator name) = undefined

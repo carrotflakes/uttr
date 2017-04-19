@@ -1,6 +1,6 @@
 // it's a comment
 
-import "./examples/prelude.uttr"
+import "prelude.uttr"
 
 {
   a: 1,

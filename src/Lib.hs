@@ -5,6 +5,8 @@ module Lib
     ) where
 
 import System.IO
+import System.Environment (getArgs, getExecutablePath)
+import System.Directory
 import Data.Map
 import Control.Monad
 import Control.Applicative
@@ -17,33 +19,50 @@ import Print
 
 
 someFunc :: IO ()
-someFunc' = test >>= repl
 someFunc = do
-  input <- readFile "./examples/foo.uttr"
-  case parseStatements "file" input of
-    Right sts -> foldM ep initialEnv sts >> return ()
+  args <- getArgs
+  executablePath <- getExecutablePath
+  currentDirectoryPath <- getCurrentDirectory
 
-    Left err -> do
-      putStrLn $ "Parsing error: " ++ show err
+  if length args >= 1
+    then do
+      let file = args !! 0
+      input <- readFile file
+      let cctx = CompileContext { executablePath = executablePath,
+                                  currentDirectoryPath = currentDirectoryPath,
+                                  currentFilePath = Just file
+                                }
+      case parseStatements "file" input of
+        Right sts -> foldM (ep cctx) initialEnv sts >> return ()
+
+        Left err -> do
+          putStrLn $ "Parsing error: " ++ show err
+
+    else do
+      let cctx = CompileContext { executablePath = executablePath,
+                                  currentDirectoryPath = currentDirectoryPath,
+                                  currentFilePath = Nothing
+                                }
+      repl cctx initialEnv
 
 
-repl env = do
+repl cctx env = do
   putStr "> " >> hFlush stdout
   line <- getLine
-  env <- rep env line
-  repl env
+  env <- rep cctx env line
+  repl cctx env
 
 
-rep env str =
+rep cctx env str =
   case parseStatement "input" str of
-    Right st -> ep env st
+    Right st -> ep cctx env st
 
     Left err -> do
       putStrLn $ "Parsing error: " ++ str
       return env
 
-ep env st = do
-  res <- doStatement env st
+ep cctx env st = do
+  res <- doStatement cctx env st
   case res of
     Right (env', result) -> do
       T.putStrLn $ showU result
@@ -52,29 +71,3 @@ ep env st = do
     Left err -> do
       T.putStrLn $ maybe "Backtracked" id err
       return env
-
-
-test = foldM f initialEnv
-  [ "1"
-  , "true"
-  , "null"
-  , "\"hoge\""
-  , "1 + 2 * 3"
-  , "( 1 + 2 ) * 3"
-  , "a = 1"
-  , "b = [1, \"a\"]"
-  , "c = {a: 1, \"b\": \"2\"}"
-
-  , "[ a = 1 ] ( 2 )"
-  , "[ 1 = 2, 2 = 3 ] ( 2 )"
-  , "[ 1 = 2, x | false = 3, x | true = 4 ] ( 2 )"
-
-  , "f0 ( x ) = x + 1"
-  , "f0 ( 2 )"
-  , "range x|x>0=(x-1):range(x-1)|x==0=[]"
-  , "range(10)"
-    ]
-  where
-    f env src = do
-      putStrLn $ "> " ++ src
-      rep env src
