@@ -120,8 +120,8 @@ operators mode =
     , infixOp ">=" AssocNone
     , infixOp "<=" AssocNone
     ]
-  , [ infixOp "&&" AssocNone
-    , infixOp "||" AssocNone
+  , [ infixOp "&&" AssocLeft
+    , infixOp "||" AssocLeft
     ]
   ]
   where
