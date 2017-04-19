@@ -173,8 +173,7 @@ apply scope (StringValue "&&") [lhs, rhs]
   | otherwise = Right $ BoolValue False
 apply scope (StringValue "||") [lhs, rhs]
   | truthy lhs = Right lhs
-  | truthy rhs = Right rhs
-  | otherwise = Right $ BoolValue False
+  | otherwise = Right rhs
 
 apply scope (StringValue "[]") [ListValue values, NumberValue idxNum]
   | idx < 0 || length values <= idx = Left $ Nothing
