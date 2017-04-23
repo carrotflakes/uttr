@@ -5,7 +5,7 @@ Uttr is a minimal programming language for processing JSON.
 ## Features
 - Purely functional
 - Pattern matching based
-- Backtracking based
+- Non-deterministic
 - Dynamically typed
 
 ## Data types
@@ -13,10 +13,10 @@ Uttr is a minimal programming language for processing JSON.
 - String: `"foo"`
 - Boolean: `true` `false`
 - Null: `null`
-- Function
-- Closure: `[x=x+1]`
 - Object: `{a: "foo", b: 123}`
 - List: `["foo", 123]`
+- Function
+- Closure: `[x=x+1]`
 
 ## Syntax
 
