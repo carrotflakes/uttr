@@ -25,11 +25,9 @@ if(null, "true!", "false!")
 
 reverse([1, 2, 3])
 
-// join, concat
-
 id x = x
 
-fail() | false = nil
+fail() | false = null
 
 fb x
 	| x % 15 == 0 = "fizzbuzz"
@@ -48,24 +46,22 @@ map(fb, range(100))
 ;[a=[a="ok"]](1)("Oops")
 
 
-fn {subject, verb, predicate} = subject + "は" + predicate + "が" + verb + "です"
 
-fn({subject: "私", verb: "好き", predicate: "りんご"})
+data1(l, r) = {type: "data1", l, r}
 
-hoge(l, r) = {type: "hoge", l, r}
+data1("l!", data1("rl!", "rr!"))
 
-hoge("l!", hoge("rl!", "rr!"))
-
-;[hoge(x, y) = [x, y], _ = null](hoge("l!", hoge("rl!", "rr!")))
-;[hoge(x, hoge(y, z)) = [x, y, z], hoge(x, y) = [x, y], _ = null](hoge("l!", hoge("rl!", "rr!")))
+;[data1(x, y) = [x, y], _ = null](data1("l!", data1("rl!", "rr!")))
+;[data1(x, data1(y, z)) = [x, y, z], data1(x, y) = [x, y], _ = null](data1("l!", data1("rl!", "rr!")))
 
 ;map([x=x+1], [1, 2, 3])
 
 fff x = x + y + z
-  { y = x + x;
-	 	z = x + y}
+  { y = x + x ;
+	 	z = x + y }
 
 fff(3)
+
 
 fib n | 1 < n = fib(n - 1) + fib(n - 2) | true = n
 
@@ -74,21 +70,8 @@ fib(10)
 ;[(a, a)=true, (a, b)=false](1, 1)
 ;[(a, a)=true, (a, b)=false](1, 2)
 
-json([1, "こんにちは", 1.2, true, false, null, {a: 1, "b": 2}])
+json([1, "Hello", 1.2, true, false, null, {a: 1, "b": 2}])
 
-want(sub, verb, obj) = {type: "want", subject: sub, verb: verb, object: obj}
-
-w = want("I", "drink", "a juice")
-
-print(want(s, v, o)) = s + " want to " + v + " " + o
-print(w)
-
-same
-  (x, x) = true,
-	(x, y)
-	  | x != y = false
-
-;[same(1, 2), same(2, 2)]
 
 ;{
 	a: 1,
@@ -113,7 +96,7 @@ filter(isPrime, range(100))
 
 g(x, y, z) = `$x$, $y$, $z$!`
 
-;g("タカ", "トラ", "バッタ")
+;g("Taka", "Tora", "Batta")
 ;`
-こんにちは
+can new lines in template literal
 `
