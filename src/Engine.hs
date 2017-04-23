@@ -119,6 +119,18 @@ evalExpression scope (ConsExpression carExpr cdrExpr)
 
 evalExpression scope (ClosureExpression block) = Right $ ClosureValue scope block
 
+evalExpression scope (TemplateLiteralExpression xs)
+  = case find isLeft evaleds of
+  Just (Left err) -> Left err
+  Nothing -> Right $ StringValue $ T.concat $ rights evaleds
+  where
+    evaleds = fmap f xs
+    f (Left expr) = case evalExpression scope expr of
+      Right (StringValue value) -> Right value
+      Right _ -> Left $ Just $ "The expression in template literal must be evaluated as a string: " `T.append` show' expr
+      Left err -> Left err
+    f (Right text) = Right text
+
 
 apply :: Scope -> Value -> [Value] -> Either (Maybe Text) Value
 apply (alist, env) (FunctionValue ident block) args

@@ -96,6 +96,10 @@ instance Show Expression where
       showMember (PropertyMember key expr) = shows key $ ": " ++ show expr
       showMember (SpreadMember expr) = "..." ++ show expr
   show (ConsExpression car cdr) = shows car $ ":" ++ show cdr
+  show (TemplateLiteralExpression xs) = "`" ++ concatMap f xs ++ "`"
+    where
+      f (Left expr) = "$" ++ show expr ++ "$"
+      f (Right text) = reverse $ tail $ reverse $ tail $ show text
   show (ClosureExpression block) = "[" ++ intercalate ", " (map showMC block) ++ "]"
     where
       showMC (patterns, Left body, whereClause) = showPatterns patterns ++ " = " ++ show body ++ showWC whereClause

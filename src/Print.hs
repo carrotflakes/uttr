@@ -46,6 +46,10 @@ instance ShowU Expression where
       showMember (PropertyMember key expr) = join [T.pack $ ushow key, ": ", showU expr]
       showMember (SpreadMember expr) = join ["...", showU expr]
   showU (ConsExpression car cdr) = join [showU car, ":", showU cdr]
+  showU (TemplateLiteralExpression xs) = join $ ["`"] ++ concatMap f xs ++ ["`"]
+    where
+      f (Left expr) = ["$", showU expr, "$"]
+      f (Right text) = [T.dropEnd 1 $ T.takeEnd 1 $ T.pack $ ushow text]
   showU (ClosureExpression block) = join $ ["["] ++ intersperse ", " (map showMC block) ++ ["]"]
     where
       showMC (patterns, Left body, whereClause) = join [showUPatterns patterns, " = ", showU body, showWC whereClause]

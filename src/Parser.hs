@@ -1,3 +1,5 @@
+{-# LANGUAGE MultiParamTypeClasses, FlexibleContexts #-}
+
 module Parser
      ( parseStatement,
        parseStatements
@@ -162,6 +164,7 @@ factor mode@ExpressionMode
   <|> ListExpression <$> try (brackets $ expressions mode)
   <|> ObjectExpression <$> braces (P.commaSep lexer $ member mode)
   <|> ClosureExpression <$> brackets block
+  <|> templateLiteral mode
 factor mode@PatternMode
   = parens (operatorSystem mode)
   <|> ValueExpression <$> valueExpression
@@ -222,3 +225,90 @@ valueExpression
   <|> (reserved "true" >> return (BoolValue True))
   <|> (reserved "false" >> return (BoolValue False))
   <|> (reserved "null" >> return NullValue)
+
+
+templateLiteral mode = do
+  whiteSpace
+  char '`'
+  xs <- many $ (Left <$> try expressionPart) <|> (Right . T.pack <$> stringPart)
+  char '`'
+  whiteSpace
+  return $ TemplateLiteralExpression xs
+  where
+    expressionPart  = between (char '$') (char '$') (expression mode)
+
+    stringPart      = foldr (maybe id (:)) "" <$> many1 tlChar
+
+    tlChar          = try dollar
+                    <|> (Just <$> endOfLine)
+                    <|> (notFollowedBy (oneOf "$`") >> stringChar)
+
+    dollar          = string "$$" >> return (Just '$')
+
+
+    stringChar      =   do{ c <- stringLetter; return (Just c) }
+                    <|> stringEscape
+                    <?> "string character"
+
+    stringLetter    = satisfy (\c -> (c /= '"') && (c /= '\\') && (c > '\026'))
+
+    stringEscape    = do{ char '\\'
+                        ;     do{ escapeGap  ; return Nothing }
+                          <|> do{ escapeEmpty; return Nothing }
+                          <|> do{ esc <- escapeCode; return (Just esc) }
+                        }
+
+    escapeEmpty     = char '&'
+    escapeGap       = do{ many1 space
+                        ; char '\\' <?> "end of string gap"
+                        }
+
+
+
+    -- escape codes
+    escapeCode      = charEsc <|> charNum <|> charAscii <|> charControl
+                    <?> "escape code"
+
+    charControl     = do{ char '^'
+                        ; code <- upper
+                        ; return (toEnum (fromEnum code - fromEnum 'A' + 1))
+                        }
+
+    charNum         = do{ code <- decimal
+                                    <|> (P.octal lexer)
+                                    <|> (P.hexadecimal lexer)
+    --                              <|> do{ char 'o'; number 8 octDigit }
+    --                              <|> do{ char 'x'; number 16 hexDigit }
+                        ; if code > 0x10FFFF
+                          then fail "invalid escape sequence"
+                          else return (toEnum (fromInteger code))
+                        }
+
+    charEsc         = choice (map parseEsc escMap)
+                    where
+                      parseEsc (c,code)     = do{ char c; return code }
+
+    charAscii       = choice (map parseAscii asciiMap)
+                    where
+                      parseAscii (asc,code) = try (do{ string asc; return code })
+
+
+    -- escape code tables
+    escMap          = zip ("abfnrtv\\\"\'") ("\a\b\f\n\r\t\v\\\"\'")
+    asciiMap        = zip (ascii3codes ++ ascii2codes) (ascii3 ++ ascii2)
+
+    ascii2codes     = ["BS","HT","LF","VT","FF","CR","SO","SI","EM",
+                       "FS","GS","RS","US","SP"]
+    ascii3codes     = ["NUL","SOH","STX","ETX","EOT","ENQ","ACK","BEL",
+                       "DLE","DC1","DC2","DC3","DC4","NAK","SYN","ETB",
+                       "CAN","SUB","ESC","DEL"]
+
+    ascii2          = ['\BS','\HT','\LF','\VT','\FF','\CR','\SO','\SI',
+                       '\EM','\FS','\GS','\RS','\US','\SP']
+    ascii3          = ['\NUL','\SOH','\STX','\ETX','\EOT','\ENQ','\ACK',
+                       '\BEL','\DLE','\DC1','\DC2','\DC3','\DC4','\NAK',
+                       '\SYN','\ETB','\CAN','\SUB','\ESC','\DEL']
+
+
+    -- auxility
+    decimal = P.decimal lexer
