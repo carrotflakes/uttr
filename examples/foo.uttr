@@ -100,3 +100,5 @@ g(x, y, z) = `$x$, $y$, $z$!`
 ;`
 can new lines in template literal
 `
+
+items({a: 1, "b": 2, c: true})
