@@ -6,7 +6,7 @@ import "prelude.uttr"
   a: 1,
   b: -1.2,
   c: "3",
-	d: [true, false, null],
+  d: [true, false, null],
   e: [[], [1], [1, 2]]
 }
 
@@ -30,10 +30,10 @@ id x = x
 fail() | false = null
 
 fb x
-	| x % 15 == 0 = "fizzbuzz"
-	| x % 3 == 0  = "fizz"
-	| x % 5 == 0  = "buzz"
-	| x           = str(x)
+  | x % 15 == 0 = "fizzbuzz"
+  | x % 3 == 0  = "fizz"
+  | x % 5 == 0  = "buzz"
+  | x           = str(x)
 
 range(10)
 
@@ -58,7 +58,7 @@ data1("l!", data1("rl!", "rr!"))
 
 fff x = x + y + z
   { y = x + x ;
-	 	z = x + y }
+    z = x + y }
 
 fff(3)
 
@@ -74,18 +74,18 @@ json([1, "Hello", 1.2, true, false, null, {a: 1, "b": 2}])
 
 
 ;{
-	a: 1,
-	...{a: 2, b: 3, c: 4},
-	b: 5
+  a: 1,
+  ...{a: 2, b: 3, c: 4},
+  b: 5
 }
 
 isPrime(n)
   | n <= 1 = false
-	| true   = f(n-1)
+  | true   = f(n-1)
   { f(x)
-	    | x == 1     = true
-	    | n % x == 0 = false
-			| true       = f(x-1) }
+      | x == 1     = true
+      | n % x == 0 = false
+      | true       = f(x-1) }
 
 map([x = [x, isPrime(x)]], range(20))
 filter(isPrime, range(100))
