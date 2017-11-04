@@ -2,6 +2,22 @@
 
 Uttr is a minimal programming language for processing JSON.
 
+## Usage
+
+### Interactive mode
+```
+$ stack exec uttr-exe
+> "Hello world"
+"Hello world"
+> 1 + 2
+3
+```
+
+### Execute examples/quicksort.uttr
+```
+$ stack exec uttr-exe examples/quicksort.uttr
+```
+
 ## Features
 - Purely functional
 - Pattern matching based
