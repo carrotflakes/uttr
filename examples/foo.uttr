@@ -109,3 +109,10 @@ nondet() = f(1)
     g(2) = null }
 
 nondet()
+
+const x = [y = x]
+
+const(1)(2)
+
+headAndTail (h:t) = {head: h, tail: t}
+headAndTail(1:2:3:[])
