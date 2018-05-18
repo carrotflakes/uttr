@@ -102,3 +102,10 @@ can new lines in template literal
 `
 
 items({a: 1, "b": 2, c: true})
+
+nondet() = f(1)
+  { f(1) = g(1);
+    f(x) = "ok";
+    g(2) = null }
+
+nondet()
