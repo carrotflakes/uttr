@@ -138,3 +138,17 @@ f(x) = g x
 > b()
 "hello"
 ```
+
+## Built-in functions
+### str
+Takes an any data and returns a readable string that represent the data.
+
+### json
+Takes an any data and returns a string as JSON.
+
+### items
+Takes a object and returns a list of pair of key and value contained the object.
+
+```
+items({a: 1, b: 2}) // => [["a", 1], ["b", 2]]
+```
