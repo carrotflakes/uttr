@@ -1,7 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Lib
-    ( someFunc
+module Uttr
+    ( standAlone,
+      repl,
+      rep,
+      ep
     ) where
 
 import System.IO
@@ -18,8 +21,8 @@ import Engine
 import Print
 
 
-someFunc :: IO ()
-someFunc = do
+standAlone :: IO ()
+standAlone = do
   args <- getArgs
   executablePath <- getExecutablePath
   currentDirectoryPath <- getCurrentDirectory

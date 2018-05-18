@@ -1,6 +1,6 @@
 module Main where
 
-import Lib
+import Uttr
 
 main :: IO ()
-main = someFunc
+main = standAlone
