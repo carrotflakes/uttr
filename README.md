@@ -59,9 +59,11 @@ And others:
 #### Template literal
 
 ```
+> a = "world"
+> `hello $a$`
+"hello world"
 > `1+2 is $1 + 2$!`
 "1+2 is 3!"
-> hoge = 123
 ```
 
 ### Definition statements
@@ -77,6 +79,12 @@ And others:
 
 ```
 add(x, y) = x + y
+```
+
+If arity is 1, you can omit that bracket:
+
+```
+add1 x = x + 1
 ```
 
 ##### Function with pattern matching
@@ -103,8 +111,8 @@ evenOrOdd(x)
 ##### Function with where clause
 
 ```
-f(x) = g x
-  { g x = x + 1 }
+f(x) = g(x)
+  { g(x) = x + 1 }
 ```
 
 ### Expression
