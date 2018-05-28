@@ -3,20 +3,17 @@ include(x, y:ys)
   | x == y = true
   | true = include(x, ys)
 
-solve(field, start, goal) = solve_(field, goal, [[start]])
-solve_(field, goal, cur:stack)
-  | cur[0] == goal = cur
-  | c(cur[0]) == 0 || include(cur[0], [_:x=x](cur)) = solve_(field, goal, stack)
-  | true = solve_(
-    field,
-    goal,
-    (up(cur[0]):cur):(down(cur[0]):cur):(left(cur[0]):cur):(right(cur[0]):cur):stack)
+solve(field, start, goal) = f([[start]])
   {
     c([y, x]) = field[y][x];
     up([y, x]) = [y-1, x];
     down([y, x]) = [y+1, x];
     left([y, x]) = [y, x-1];
     right([y, x]) = [y, x+1];
+    f(cur:stack)
+      | cur[0] == goal = cur
+      | c(cur[0]) == 0 || include(cur[0], [_:x=x](cur)) = f(stack)
+      | true = f((up(cur[0]):cur):(down(cur[0]):cur):(left(cur[0]):cur):(right(cur[0]):cur):stack)
   }
 
 solve([
