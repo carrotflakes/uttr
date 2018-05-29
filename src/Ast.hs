@@ -43,6 +43,7 @@ data Expression
   | ConsExpression Expression Expression
   | TemplateLiteralExpression [Either Expression Text]
   | ClosureExpression Block
+  | AtPattern Expression Expression
   deriving (Eq)
 
 data ObjectExpressionMember
@@ -107,6 +108,7 @@ instance Show Expression where
       showGC (guard, body) = " | " ++ show guard ++ " = " ++ show body
       showWC [] = ""
       showWC defs = " {" ++ intercalate "; " (map show defs) ++ "}"
+  show (AtPattern expr1 expr2) = shows expr1 $ "@" ++ show expr2
 
 instance Show Value where
   show (NumberValue value)

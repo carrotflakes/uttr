@@ -312,6 +312,10 @@ match' scope alist applyExpr@(ApplyExpression _ _) value
   Right value' -> match' scope alist (expressify value') value
   Left _ -> Nothing -- TODO: Left (Just _) だったときの挙動
 
+match' scope alist (AtPattern expr1 expr2) value = do
+  alist <- match' scope alist expr2 value
+  match' scope alist expr1 value
+
 match' scope alist expr value = error $ "Cannot match " ++ show expr ++ " with " ++ show value
 
 

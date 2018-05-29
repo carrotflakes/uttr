@@ -106,6 +106,8 @@ operatorSystem mode = buildExpressionParser (operators mode) (applies mode)
 operators mode =
   [ [ Prefix (reservedOp "-" >> return (\x -> apply "-" [x]))
     ]
+  , [ Infix (reservedOp "@" >> return AtPattern) AssocNone
+    ]
   , [ Infix (reservedOp ":" >> return ConsExpression) AssocRight
     ]
   , [ infixOp "*" AssocLeft
