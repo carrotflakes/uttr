@@ -1,7 +1,8 @@
-include(x, []) = false
-include(x, y:ys)
-  | x == y = true
-  | true = include(x, ys)
+include
+  (x, []) = false,
+  (x, y:ys)
+    | x == y = true
+    | true = include(x, ys)
 
 solve(field, start, goal) = f([[start]])
   {
