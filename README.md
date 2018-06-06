@@ -188,5 +188,24 @@ Takes an any data and returns a string as JSON.
 Takes a object and returns a list of pair of key and value contained the object.
 
 ```
-items({a: 1, b: 2}) // => [["a", 1], ["b", 2]]
+> items({a: 1, b: 2})
+[["a", 1], ["b", 2]]
+```
+
+### typeOf
+Takes any data and returns type of the data.
+
+```
+> typeOf(0)
+"number"
+> typeOf("")
+"string"
+> typeOf(true)
+"boolean"
+> typeOf(null)
+"null"
+> typeOf([])
+"list"
+> typeOf({})
+"object"
 ```
