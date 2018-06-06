@@ -85,12 +85,12 @@ functionDefinition = do
 
 constantDefinition = do
   whiteSpace
-  ident <- identifier
+  pattern <- expression PatternMode
   whiteSpace
   string "="
   whiteSpace
   expr <- expression ExpressionMode
-  return $ ConstantDefinition ident expr
+  return $ ConstantDefinition pattern expr
 
 
 patterns = parens (expressions PatternMode) <|> do

@@ -116,3 +116,8 @@ const(1)(2)
 
 headAndTail (h:t) = {head: h, tail: t}
 headAndTail(1:2:3:[])
+
+{a, b: b, c: [c]} = {a: 1, b: 2, c: [3]}
+;[a, b, c]
+
+{a, b: b, c: [c, _]} = {a: 1, b: 2, c: [3]}

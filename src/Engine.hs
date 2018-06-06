@@ -43,8 +43,8 @@ doStatement cctx env (ExpressionStatement expr) = return $ case evalExpression (
   Left err -> Left err
 
 doStatement cctx env (DefinitionStatement def) = return $ do
-  (ident, value) <- evalDefinition ([], env) def
-  return (Map.insert ident value env, value)
+  (ivs, value) <- evalDefinition ([], env) def
+  return (Data.List.foldl' (\e (i, v)-> Map.insert i v e) env ivs, value)
 
 doStatement cctx env (ImportStatement fi) = do
   input <- readFile path
@@ -62,15 +62,19 @@ doStatement cctx env (ImportStatement fi) = do
         Left err -> return $ Left $ Just $ (maybe "Backtracked" id err) `T.append` " in " `T.append` (T.pack $ show fi)
 
 
-evalDefinition :: Scope -> Definition -> Either (Maybe Text) (Identifier, Value)
+evalDefinition :: Scope -> Definition -> Either (Maybe Text) ([(Identifier, Value)], Value)
 evalDefinition scope (FunctionDefinition ident matchClauses) = case resolve scope ident of
-  Just (FunctionValue ident matchClauses') -> Right (ident, FunctionValue ident $ matchClauses' ++ matchClauses)
-  Nothing -> Right (ident, FunctionValue ident matchClauses)
+  Just (FunctionValue ident matchClauses') -> let func = FunctionValue ident $ matchClauses' ++ matchClauses
+    in Right ([(ident, func)], func)
+  Nothing -> let func = FunctionValue ident matchClauses
+    in Right ([(ident, func)], func)
   Just value -> Left $ Just $ "Cannot overwrite with function: " `T.append` show' value
 
-evalDefinition scope (ConstantDefinition ident expr) = do
+evalDefinition scope (ConstantDefinition pattern expr) = do
   evaled <- evalExpression scope expr
-  return (ident, evaled)
+  case match scope pattern evaled of
+    Just bindings -> Right (bindings, evaled)
+    Nothing -> Left Nothing
 
 
 evalExpression :: Scope -> Expression -> Either (Maybe Text) Value
@@ -260,16 +264,18 @@ applyFunction scope matchClauses args = f matchClauses
     procWhereClause scope defs = foldM procDefs scope defs
       where
         procDefs scope def = do
-          binding <- evalDefinition' scope def
-          return $ bind binding scope
+          bindings <- evalDefinition' scope def
+          return $ Data.List.foldl' (flip bind) scope bindings
 
-    evalDefinition' :: Scope -> Definition -> Either (Maybe Text) (Identifier, Value)
-    evalDefinition' scope (FunctionDefinition ident matchClauses) = return binding
+    evalDefinition' :: Scope -> Definition -> Either (Maybe Text) [(Identifier, Value)]
+    evalDefinition' scope (FunctionDefinition ident matchClauses) = return [binding]
         where binding = (ident, ClosureValue (bind binding scope) matchClauses)
 
-    evalDefinition' scope (ConstantDefinition ident expr) = do
+    evalDefinition' scope (ConstantDefinition pattern expr) = do
       evaled <- evalExpression scope expr
-      return (ident, evaled)
+      case match scope pattern evaled of
+        Just bindings -> Right bindings
+        Nothing -> Left Nothing
 
 
 match :: Scope -> Expression -> Value -> Maybe [(Identifier, Value)]

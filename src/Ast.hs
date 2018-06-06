@@ -31,7 +31,7 @@ data Statement
 
 data Definition
   = FunctionDefinition Identifier Block
-  | ConstantDefinition Identifier Expression
+  | ConstantDefinition Expression Expression
   deriving (Eq)
 
 data Expression
@@ -82,8 +82,8 @@ instance Show Definition where
       showGC (guard, body) = " | " ++ show guard ++ " = " ++ show body
       showWC [] = ""
       showWC defs = " {" ++ intercalate "; " (map show defs) ++ "}"
-  show (ConstantDefinition ident body)
-    = (T.unpack ident) ++ " = " ++ show body
+  show (ConstantDefinition pattern body)
+    = show pattern ++ " = " ++ show body
 
 instance Show Expression where
   show (ValueExpression value) = show value

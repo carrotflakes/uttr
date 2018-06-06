@@ -31,8 +31,8 @@ instance ShowU Definition where
       showGC (guard, body) = join [" | ", showU guard, " = ", showU body]
       showWC [] = ""
       showWC defs = join $ [" {"] ++ intersperse "; " (map showU defs) ++ ["}"]
-  showU (ConstantDefinition ident body)
-    = join [ident, " = ", showU body]
+  showU (ConstantDefinition pattern body)
+    = join [showU pattern, " = ", showU body]
 
 instance ShowU Expression where
   showU (ValueExpression value) = showU value
