@@ -34,7 +34,7 @@ show' :: ShowU a => a -> Text
 show' = showU
 
 
-initialEnv = fromList $ fmap (\x -> (x, StringValue x)) ["str", "json", "items", "findall"]
+initialEnv = fromList $ fmap (\x -> (x, StringValue x)) ["str", "json", "items", "typeOf"]
 
 
 doStatement :: CompileContext -> Env -> Statement -> IO (Either (Maybe Text) (Env, Value))
@@ -230,6 +230,17 @@ apply scope (StringValue "items") [param] = case param of
   ObjectValue membs -> Right $ ListValue $ fmap f membs
   _ -> Left $ Just $ "Cannot apply 'items' to: " `T.append` show' param
   where f (key, value) = ListValue [(StringValue key), value]
+
+apply scope (StringValue "typeOf") [param] = Right $ StringValue $ case param of
+  NumberValue _ -> "number"
+  StringValue _ -> "string"
+  BoolValue _ -> "boolean"
+  NullValue -> "null"
+  ListValue _ -> "list"
+  ObjectValue _ -> "object"
+  FunctionValue _ _ -> "function"
+  ClosureValue _ _ -> "closure"
+  VariableValue _ -> error "typeOf(variable) error"
 
 apply scope value _ = Left $ Just $ "Not function: " `T.append` show' value
 
