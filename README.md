@@ -1,8 +1,13 @@
 # uttr
 
-Uttr is a minimal programming language for processing JSON.
+Uttr is a programming language for processing JSON.
 
 ## Usage
+
+### Build
+```
+$ stack build
+```
 
 ### Interactive mode
 ```
@@ -75,6 +80,24 @@ And others:
 "Constant value"
 ```
 
+##### Destructuring assignment
+
+```
+> [a, b] = [1, 2]
+> a
+1
+> b
+2
+```
+
+```
+> {a: a, b} = {a: 1, b: 2}
+> a
+1
+> b
+2
+```
+
 #### Function
 
 ```
@@ -93,19 +116,26 @@ add1 x = x + 1
 head(x:_) = x
 ```
 
+```
+head
+  (x:_) = x,
+  [] = null
+```
+
 ##### Function with guard clauses
 
 ```
-evenOrOdd(x) | x % 2 == 0 = "even!"
-evenOrOdd(x) | x % 2 != 0 = "odd!"
+evenOrOdd(x)
+  | x % 2 == 0 = "even!"
+  | x % 2 != 0 = "odd!"
 ```
 
 or
 
 ```
 evenOrOdd(x)
-| x % 2 == 0 = "even!"
-| true = "odd!"
+  | x % 2 == 0 = "even!"
+  | true = "odd!"
 ```
 
 ##### Function with where clause
