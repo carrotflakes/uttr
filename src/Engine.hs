@@ -310,6 +310,7 @@ match' scope alist (ListExpression exprs) (ListValue values)
   | length exprs == length values = foldM f alist $ zip exprs values
   | otherwise = Nothing
   where f alist (e, v) = match' scope alist e v
+match' scope alist (ListExpression exprs) _ = Nothing
 
 match' scope alist objExpr@(ObjectExpression membs) (ObjectValue membVals)
   = match' scope alist (ListExpression $ fmap fst pairs) (ListValue $ fmap snd pairs)
@@ -317,12 +318,14 @@ match' scope alist objExpr@(ObjectExpression membs) (ObjectValue membVals)
     pairs = Data.Maybe.mapMaybe f membs
     f (PropertyMember key expr) = ((,) expr) `fmap` Data.List.lookup key membVals
     f memb@(SpreadMember _) = error $ "Cannot use spread notation as pattern: " ++ show objExpr
+match' scope alist (ObjectExpression membs) _ = Nothing
 
 match' scope alist (ConsExpression carExpr cdrExpr) (ListValue values)
   | length values /= 0 = do
     alist <- match' scope alist carExpr $ head values
     match' scope alist cdrExpr $ ListValue $ tail values
   | otherwise = Nothing
+match' scope alist (ConsExpression carExpr cdrExpr) _ = Nothing
 
 match' scope alist applyExpr@(ApplyExpression _ _) value
   = case evalExpression scope applyExpr of
