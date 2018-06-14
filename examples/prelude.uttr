@@ -5,12 +5,12 @@ range
     | start < end = start:range(start + step, end, step)
     | true        = []
 
-
 map
   (fun, x:xs) = fun(x):map(fun, xs),
   (_, [])     = []
 
 foldl
+  (f, r:rs)    = foldl(f, r, rs),
   (f, l, [])   = l,
   (f, l, r:rs) = foldl(f, f(l, r), rs)
 
@@ -20,9 +20,17 @@ filter
     | f(x)  = x:filter(f, xs)
     | true  = filter(f, xs)
 
+length
+  ([])   = 0,
+  (_:xs) = 1 + length(xs)
+
+zip
+  ([], _) = [],
+  (_, []) = [],
+  (x:xs, y:ys) = [x, y]:zip(xs, ys)
+
+enumerate(xs) = zip(range(length(xs)), xs)
+
 reverse(l) = f(l, [])
   { f ([], ys)   = ys,
       (x:xs, ys) = f(xs, x:ys) }
-
-
-if(cond, then, else) | cond = then | true = else
