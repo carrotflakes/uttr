@@ -99,6 +99,12 @@ evalExpression scope (ObjectExpression membs)
     evalMember (PropertyMember key expr) = do
       value <- evalExpression scope expr
       return [(key, value)]
+    evalMember (ComputedPropertyMember keyExpr expr) = do
+      keyValue <- evalExpression scope keyExpr
+      value <- evalExpression scope expr
+      case keyValue of
+        StringValue key -> Right [(key, value)]
+        _ -> Left $ Just $ "The expression must be evaluated as a string: " `T.append` show' keyExpr
     evalMember (SpreadMember expr) = do
       value <- evalExpression scope expr
       case value of

@@ -48,6 +48,7 @@ data Expression
 
 data ObjectExpressionMember
   = PropertyMember Text Expression
+  | ComputedPropertyMember Expression Expression
   | SpreadMember Expression
   deriving (Eq)
 

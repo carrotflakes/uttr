@@ -180,6 +180,11 @@ member mode
     P.colon lexer
     expr <- expression mode
     return $ PropertyMember ident expr)
+  <|> do
+    keyExpr <- brackets $ expression mode
+    P.colon lexer
+    expr <- expression mode
+    return $ ComputedPropertyMember keyExpr expr
   <|> (do
     ident <- identifier
     return $ PropertyMember ident (VariableExpression ident))
