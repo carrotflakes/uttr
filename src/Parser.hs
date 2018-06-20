@@ -98,7 +98,7 @@ patterns = parens (expressions PatternMode) <|> do
   return [pattern]
 
 expression mode = operatorSystem mode
-expressions mode = sepBy (expression mode) comma
+expressions mode = sepEndBy (expression mode) comma
 
 
 operatorSystem mode = buildExpressionParser (operators mode) (applies mode)
@@ -140,7 +140,7 @@ applies mode@ExpressionMode = factor mode >>= f
       args <- parens (expressions mode)
       f (ApplyExpression left args)
      <|> do
-      arg <- brackets (expression mode)
+      arg <- try $ brackets (expression mode)
       f (ApplyExpression (ValueExpression $ StringValue $ T.pack "[]") [left, arg])
      <|> do
       P.dot lexer
@@ -164,7 +164,7 @@ factor mode@ExpressionMode
   <|> ValueExpression <$> valueExpression
   <|> VariableExpression <$> identifier
   <|> ListExpression <$> try (brackets $ expressions mode)
-  <|> ObjectExpression <$> braces (P.commaSep lexer $ member mode)
+  <|> ObjectExpression <$> braces (sepEndBy (member mode) comma)
   <|> ClosureExpression <$> brackets block
   <|> templateLiteral mode
 factor mode@PatternMode
@@ -172,7 +172,7 @@ factor mode@PatternMode
   <|> ValueExpression <$> valueExpression
   <|> (ValueExpression . VariableValue) <$> identifier
   <|> ListExpression <$> try (brackets $ expressions mode)
-  <|> ObjectExpression <$> braces (P.commaSep lexer $ member mode)
+  <|> ObjectExpression <$> braces (sepEndBy (member mode) comma)
 
 member mode
   = try (do
@@ -194,7 +194,7 @@ member mode
     expr <- expression mode
     return $ SpreadMember expr)
 
-block = sepBy1
+block = sepEndBy1
  (do
     patterns <- patterns
     guardClausesOrBody <- body <|> guardClauses
