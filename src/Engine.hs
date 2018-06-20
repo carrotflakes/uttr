@@ -332,6 +332,11 @@ match' scope alist (ConsExpression carExpr cdrExpr) (ListValue values)
     alist <- match' scope alist carExpr $ head values
     match' scope alist cdrExpr $ ListValue $ tail values
   | otherwise = Nothing
+match' scope alist (ConsExpression carExpr cdrExpr) (StringValue string)
+  | T.length string /= 0 = do
+    alist <- match' scope alist carExpr $ StringValue $ T.take 1 string
+    match' scope alist cdrExpr $ StringValue $ T.tail string
+  | otherwise = Nothing
 match' scope alist (ConsExpression carExpr cdrExpr) _ = Nothing
 
 match' scope alist applyExpr@(ApplyExpression _ _) value
