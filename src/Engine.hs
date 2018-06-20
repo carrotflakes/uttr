@@ -208,6 +208,13 @@ apply scope (StringValue "[]") [ObjectValue members, StringValue key]
   Nothing -> Left $ Nothing
 apply scope (StringValue "[]") [ObjectValue members, _]
   = Left $ Nothing
+apply scope (StringValue "[]") [StringValue string, NumberValue idxNum]
+  | idx < 0 || T.length string <= idx = Left $ Nothing
+  | fromIntegral idx /= idxNum = Left $ Nothing
+  | otherwise = Right . StringValue . T.take 1 $ T.drop idx string
+  where idx = round idxNum
+apply scope (StringValue "[]") [StringValue string, _]
+  = Left $ Nothing
 apply scope (StringValue "[]") [value, _]
   = Left $ Just $ "Cannot get member from: " `T.append` show' value
 
