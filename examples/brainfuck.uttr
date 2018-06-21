@@ -1,0 +1,29 @@
+read
+  "" = [[], ""],
+  ("[":src) = [ret1:ret2, src2]
+    {
+      [ret1, src1] = read(src)
+      [ret2, src2] = read(src1)
+    },
+  ("]":src) = [[], src],
+  (x:src) = [x:ret1, src1]
+    { [ret1, src1] = read(src) }
+
+run_
+  ("+":xs, ls, m, rs, is, cs) = run_(xs, ls, (m+1) % 256, rs, is, cs),
+  ("-":xs, ls, m, rs, is, cs) = run_(xs, ls, (m+255) % 256, rs, is, cs),
+  ("<":xs, l:ls, m, rs, is, cs) = run_(xs, ls, l, m:rs, is, cs),
+  ("<":xs, [], m, rs, is, cs) = run_(xs, [], 0, m:rs, is, cs),
+  (">":xs, ls, m, r:rs, is, cs) = run_(xs, m:ls, r, rs, is, cs),
+  (">":xs, ls, m, [], is, cs) = run_(xs, m:ls, 0, [], is, cs),
+  (",":xs, ls, _, rs, i:is, cs) = run_(xs, ls, i, rs, is, cs),
+  (".":xs, ls, m, rs, is, cs) = m:run_(xs, ls, m, rs, is, cs),
+  (x:xs, ls, 0, rs, is, cs) | typeOf(x) == "list" = run_(xs, ls, 0, rs, is, cs),
+  (x:xs, ls, m, rs, is, cs) | typeOf(x) == "list" = run_(x, ls, m, rs, is, (x:xs):cs),
+  ([], ls, m, rs, is, c:cs) = run_(c, ls, m, rs, is, cs),
+  ([], ls, m, rs, is, []) = []
+
+run(src) = run_(ast, [], 0, [], [], [])
+  {[ast, ""] = read(src)}
+
+run("+++++++++[>++++++++>+++++++++++>+++++<<<-]>.>++.+++++++..+++.>-.------------.<++++++++.--------.+++.------.--------.>+.")
