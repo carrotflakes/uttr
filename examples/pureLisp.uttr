@@ -1,0 +1,157 @@
+
+read(text) = parseExp(skipWs(text))
+
+skipWs
+  (x:xs) | elem(x, " \t\r\n") = skipWs(xs),
+  xs = xs
+
+parseExp
+  ("(":xs) = parseList(skipWs(xs)),
+  xs = parseSymbol(xs)
+
+parseList
+  (")":xs) = [false, xs],
+  (".":xs) = [val1, text2]
+  {
+    [val1, text1] = parseExp(skipWs(xs))
+    ")":text2 = skipWs(text1)
+  },
+  xs = [[val1, val2], text2]
+  {
+    [val1, text1] = parseExp(xs)
+    [val2, text2] = parseList(skipWs(text1))
+  }
+
+parseSymbol(xs)
+  | val == "true" = [true, text]
+  | val == "false" = [false, text]
+  | true = [val, text]
+  {
+    f
+      ("", ys) | length(ys) > 0 = [ys, ""],
+      (x:xs, ys)
+        | elem(x, " \t\r\n()") = [ys, skipWs(x + xs)]
+        | true = f(xs, ys + x)
+    [val, text] = f(xs, "")
+  }
+
+
+show
+  [car, cdr] = "(" + showList([car, cdr]),
+  val = str(val)
+
+showList
+  [car, false] = show(car) + ")",
+  [car, cdr] = show(car) + " " + showList(cdr),
+  val = ". " + show(val) + ")"
+
+
+initialEnv() = list2consList(items({
+  atom: [[exp, false] = typeOf(exp) != "list"],
+  eq: [[x, [y, false]] = x == y],
+  car: [[[car, cdr], false] = car],
+  cdr: [[[car, cdr], false] = cdr],
+  cons: [[car, [cdr, false]] = [car, cdr]],
+}))
+
+eval(env, exp) =
+  [
+    exp
+      | typeOf(exp) == "string" = [env, assoc(exp, env)]
+      | typeOf(exp) != "list" = [env, exp],
+
+    ["quote", [arg, false]] = [env, arg],
+
+    ["if", [cond, [then, [else, false]]]] = eval(env1, [false = else, _ = then](val))
+      {
+        [env1, val] = eval(env, cond)
+      },
+
+    (("lambda":_)@lambda) = [env, lambda],
+
+    ["define", [var, [exp, false]]] = [env2, val]
+      {
+        [env1, val] = eval(env, exp)
+        env2 = [[var, val], env1]
+      },
+
+    exps | typeOf(exps) == "list" = [
+        ["lambda", [params, [body, false]]] = [env1, eval(appendConsList(zips(params, args), env1), body)[1]],
+        op | typeOf(op) == "closure" = [env1, op(args)]
+      ](op)
+      {
+        [env1, [op, args]] = evalList(env, exps)
+      },
+  ](exp)
+
+
+evalList
+  (env, [x, xs]) = [env2, [val, vals]]
+    {
+      [env1, val] = eval(env, x)
+      [env2, vals] = evalList(env1, xs)
+    },
+  (env, false) = [env, false]
+
+
+length
+  []     = 0,
+  ""     = 0,
+  (_:xs) = 1 + length(xs)
+
+elem
+  (x, [])   = false,
+  (x, "")   = false,
+  (x, y:ys)
+  | x == y = true
+  | true = elem(x, ys)
+
+zip
+  ([], _) = [],
+  (_, []) = [],
+  (x:xs, y:ys) = [x, y]:zip(xs, ys)
+
+zips
+  (false, _) = false,
+  (_, false) = false,
+  ([x, xs], [y, ys]) = [[x, y], zips(xs, ys)]
+
+list2consList
+  [] = false,
+  (x:xs) = [x, list2consList(xs)]
+
+appendConsList
+  (false, ys) = ys,
+  ([x, xs], ys) = [x, appendConsList(xs, ys)]
+
+assoc
+  (x, [[y, z], ys])
+    | x == y = z
+    | x != y = assoc(x, ys)
+
+
+
+env = initialEnv()
+
+[env, val] = eval(env, read("(cons (quote a) (quote b))")[0])
+show(val)
+[env, val] = eval(env, read("(car (cons (quote a) (quote b)))")[0])
+show(val)
+[env, val] = eval(env, read("(cdr (cons (quote a) (quote b)))")[0])
+show(val)
+[env, val] = eval(env, read("(eq (quote a) (quote b))")[0])
+show(val)
+[env, val] = eval(env, read("(eq (quote a) (quote a))")[0])
+show(val)
+[env, val] = eval(env, read("(atom (quote a))")[0])
+show(val)
+[env, val] = eval(env, read("(atom (quote (a . b)))")[0])
+show(val)
+[env, val] = eval(env, read("(if true (quote a) (quote b))")[0])
+show(val)
+[env, val] = eval(env, read("(if false (quote a) (quote b))")[0])
+show(val)
+[env, val] = eval(env, read("(define my-cons (lambda (a b) (cons a b)))")[0])
+show(val)
+[env, val] = eval(env, read("(my-cons (quote 1) (quote 2))")[0])
+show(val)
