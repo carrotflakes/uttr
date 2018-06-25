@@ -168,13 +168,12 @@ f(x) = g(x)
 > a = [() = "Hello"]
 > a()
 "Hello"
-```
-
-```
-> a(x) = [() = x]
-> b = a("hello")
-> b()
+> b(x) = [() = x]
+> c = b("hello")
+> c()
 "hello"
+> [true="Same!", false="Different!"](1 == 1)
+"Same!"
 ```
 
 ## Built-in functions
