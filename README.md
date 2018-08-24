@@ -176,6 +176,18 @@ f(x) = g(x)
 "Same!"
 ```
 
+#### Object initializer
+Similar to JavaScript
+
+```
+{
+  a: 1,
+  "b": 2,
+  ["c"]: 3,
+  ...4
+}
+```
+
 ## Built-in functions
 ### str
 Takes an any data and returns a readable string that represent the data.
